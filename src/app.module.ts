@@ -6,13 +6,15 @@ import { ConfigModule } from '@nestjs/config';
 import UserController from './auth/user.controller';
 import UserService from './auth/user.service';
 import { PrismaService } from './prisma.service';
+import { UniverseModule } from './universe/universe.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
     }),
-    FriendsModule
+    FriendsModule,
+    UniverseModule
   ],
   controllers: [
     AppController,
