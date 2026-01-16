@@ -2,30 +2,36 @@ import {
     BadRequestException,
     Body,
     Controller,
-    Headers,
-    Post,
+    Delete,
     Get,
     Param,
+    Post,
+    Req,
     UnauthorizedException,
-    Delete,
+    UseGuards,
 } from '@nestjs/common';
+import { ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
+import { AuthGuard } from '@nestjs/passport';
 import { FriendsService } from './friends.service';
 import { CreateFriendRequestDto } from './dto/create-friend-request.dto';
 
 @Controller('friends')
+@ApiBearerAuth('access-token')
+@UseGuards(AuthGuard('jwt'))
 export class FriendsController {
-    constructor(private readonly friendsService: FriendsService) { }
+    constructor(private readonly friendsService: FriendsService) {}
 
     @Post('requests')
+    @ApiOperation({ summary: 'Create friend request' })
     async createFriendRequest(
-        @Headers('x-user-id') userIdHeader: string | undefined,
+        @Req() req: { user?: { userId?: number } },
         @Body() dto: CreateFriendRequestDto,
     ) {
-        if (!userIdHeader) {
+        if (!req.user?.userId) {
             throw new UnauthorizedException('Missing user id.');
         }
 
-        const requesterId = Number(userIdHeader);
+        const requesterId = Number(req.user.userId);
         const targetUserId = Number(dto.targetUserId);
 
         if (Number.isNaN(requesterId) || Number.isNaN(targetUserId)) {
@@ -37,13 +43,13 @@ export class FriendsController {
 
     @Get('requests/incoming')
     async getIncomingFriendRequests(
-        @Headers('x-user-id') userIdHeader: string | undefined
+        @Req() req: { user?: { userId?: number } },
     ) {
-        if (!userIdHeader) {
+        if (!req.user?.userId) {
             throw new UnauthorizedException('Missing user id.');
         }
 
-        const receiverId = Number(userIdHeader);
+        const receiverId = Number(req.user.userId);
 
         if (Number.isNaN(receiverId)) {
             throw new BadRequestException('Invalid user id.');
@@ -54,13 +60,13 @@ export class FriendsController {
 
     @Get('requests/outgoing')
     async getOutgoingFriendRequests(
-        @Headers('x-user-id') userIdHeader: string | undefined
+        @Req() req: { user?: { userId?: number } },
     ) {
-        if (!userIdHeader) {
+        if (!req.user?.userId) {
             throw new UnauthorizedException('Missing user id.');
         }
 
-        const requesterId = Number(userIdHeader);
+        const requesterId = Number(req.user.userId);
 
         if (Number.isNaN(requesterId)) {
             throw new BadRequestException('Invalid user id.');
@@ -69,16 +75,13 @@ export class FriendsController {
         return this.friendsService.getOutgoingFriendRequests(requesterId);
     }
 
-
     @Get()
-    async getFriendsList(
-        @Headers('x-user-id') userIdHeader: string | undefined,
-    ) {
-        if (!userIdHeader) {
+    async getFriendsList(@Req() req: { user?: { userId?: number } }) {
+        if (!req.user?.userId) {
             throw new UnauthorizedException('Missing user id.');
         }
 
-        const userId = Number(userIdHeader);
+        const userId = Number(req.user.userId);
 
         if (Number.isNaN(userId)) {
             throw new BadRequestException('Invalid user id.');
@@ -89,14 +92,14 @@ export class FriendsController {
 
     @Post('requests/:requestId/accept')
     async acceptFriendRequest(
-        @Headers('x-user-id') userIdHeader: string | undefined,
+        @Req() req: { user?: { userId?: number } },
         @Param('requestId') requestIdParam: string,
     ) {
-        if (!userIdHeader) {
+        if (!req.user?.userId) {
             throw new UnauthorizedException('Missing user id.');
         }
 
-        const receiverId = Number(userIdHeader);
+        const receiverId = Number(req.user.userId);
         const requestId = Number(requestIdParam);
 
         if (Number.isNaN(receiverId) || Number.isNaN(requestId)) {
@@ -108,14 +111,14 @@ export class FriendsController {
 
     @Post('requests/:requestId/reject')
     async rejectFriendRequest(
-        @Headers('x-user-id') userIdHeader: string | undefined,
+        @Req() req: { user?: { userId?: number } },
         @Param('requestId') requestIdParam: string,
     ) {
-        if (!userIdHeader) {
+        if (!req.user?.userId) {
             throw new UnauthorizedException('Missing user id.');
         }
 
-        const receiverId = Number(userIdHeader);
+        const receiverId = Number(req.user.userId);
         const requestId = Number(requestIdParam);
 
         if (Number.isNaN(receiverId) || Number.isNaN(requestId)) {
@@ -127,14 +130,14 @@ export class FriendsController {
 
     @Delete('/:userId')
     async deleteFriend(
-        @Headers('x-user-id') userIdHeader: string | undefined,
+        @Req() req: { user?: { userId?: number } },
         @Param('userId') friendIdParam: string,
     ) {
-        if (!userIdHeader) {
+        if (!req.user?.userId) {
             throw new UnauthorizedException('Missing user id.');
         }
 
-        const userId = Number(userIdHeader);
+        const userId = Number(req.user.userId);
         const friendId = Number(friendIdParam);
 
         if (Number.isNaN(userId) || Number.isNaN(friendId)) {

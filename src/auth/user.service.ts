@@ -2,7 +2,8 @@ import { Injectable, UnauthorizedException } from "@nestjs/common";
 import { GithubCodeDto } from "./dto/user.dto";
 import { ConfigService } from "@nestjs/config";
 import axios, { AxiosResponse } from "axios";
-import { PrismaService } from "src/prisma.service";
+import { PrismaService } from "src/prisma/prisma.service";
+import { JwtService } from "@nestjs/jwt";
 
 export interface IGithubUserTypes {
   githubId: string;
@@ -14,6 +15,9 @@ export interface IGithubUserTypes {
   accessToken: string;
   totalStats: number;
   publicRepos: number;
+
+  userId: number;
+  appToken: string;
 }
 
 export interface IGithubRepo {
@@ -33,6 +37,7 @@ export default class UserService {
   constructor(
     private configService: ConfigService,
     private prisma: PrismaService,
+    private jwtService: JwtService,
   ) {}
 
   public async getGithubInfo(GithubCodeDto: GithubCodeDto): Promise<IGithubUserTypes> {
@@ -78,7 +83,7 @@ export default class UserService {
     // API에서 받은 데이터를 골라서 처리
     const { login, avatar_url, name, bio, company, public_repos, followers } = data;
 
-    const githubInfo: IGithubUserTypes = {
+    const githubInfoBase = {
       githubId: login,
       avatar: avatar_url,
       name,
@@ -90,7 +95,7 @@ export default class UserService {
     };
 
     // 유저 정보 저장, 업데이트
-    await this.prisma.user.upsert({
+    const githubUser = await this.prisma.githubUser.upsert({
       where: { githubId: login },
       update : {
         accessToken: access_token,
@@ -106,7 +111,31 @@ export default class UserService {
       },
     });
 
-    return githubInfo;
+    let user = await this.prisma.user.findUnique({
+      where: { githubUserId: githubUser.id },
+    });
+
+    if (!user) {
+      user = await this.prisma.user.create({
+        data: {
+          nickname: githubUser.name ?? githubUser.githubId,
+          githubUserId: githubUser.id,
+        },
+      });
+    }
+
+    const payload = {
+      userId: user.id,
+      githubId: githubUser.githubId
+    };
+
+    const accessToken = this.jwtService.sign(payload);
+
+    return {
+      ...githubInfoBase,
+      userId: user.id,
+      appToken: accessToken,
+    };
   }
 
   // 사이드 바에 둘 레포 목록 가져오기
@@ -120,14 +149,22 @@ export default class UserService {
       },
     });
 
-    // 2. 현재 로그인한 유저의 id 가져오기
-    const user = await this.prisma.user.findUnique({
-      where: {
-        githubId: data[0]?.owner.login
+    const userResponse = await axios.get('https://api.github.com/user', {
+      headers: {
+        Authorization: `token ${accessToken}`
       },
     });
 
-    if (!user) {
+    const githubLogin = userResponse.data.login;
+
+    // 2. 현재 로그인한 유저의 id 가져오기
+    const githubUser = await this.prisma.githubUser.findUnique({
+      where: {
+        githubId: githubLogin
+      },
+    });
+
+    if (!githubUser) {
       throw new UnauthorizedException('유저 정보를 먼저 등록해야 합니다.');
     }
 
@@ -145,7 +182,7 @@ export default class UserService {
           repoId: BigInt(repo.id),
           name: repo.name,
           updatedAt: repo.updated_at,
-          userId: user.id,
+          userId: githubUser.id,
         },
       });
     }
@@ -169,8 +206,17 @@ export default class UserService {
       },
     });
 
+    const ownerUser = await this.prisma.githubUser.findUnique({
+      where: {
+        githubId: owner
+      }
+    });
+
     const repository = await this.prisma.repository.findFirst({
-      where: { name: repo },
+      where: { 
+        name: repo,
+        userId: ownerUser?.id
+      },
     });
 
     if (!repository) {
@@ -199,4 +245,87 @@ export default class UserService {
       date: item.commit.author.date,
     }))
   }
+
+  public async searchAppUsers(query: string) {
+    return await this.prisma.user.findMany({
+      where: {
+        githubUser: {
+          githubId: {
+            contains: query, // 검색어 포함 여부
+            mode: 'insensitive', // 대소문자 구분 X
+          },
+        },
+      },
+      select: {
+        id: true,
+        nickname: true,
+        githubUser: {
+          select: {
+            githubId: true,
+            avatar: true,
+          },
+        },
+      },
+      take: 10,
+    });
+  }
+
+
+
+
+
+
+// src/auth/user.service.ts
+
+async createMockFriendData() {
+  // 1. 가짜 깃허브 유저 생성
+  const mockGithubUser = await this.prisma.githubUser.upsert({
+    where: { githubId: 'testfriend' },
+    update: {},
+    create: {
+      githubId: 'testfriend',
+      avatar: 'https://github.com/identicons/test.png',
+      name: '테스트친구',
+      accessToken: 'dummy_token_123',
+      publicRepos: 10,
+    },
+  });
+
+  // 2. 가짜 서비스 유저 생성
+  const mockUser = await this.prisma.user.upsert({
+    where: { githubUserId: mockGithubUser.id },
+    update: {},
+    create: {
+      nickname: '별헤는친구',
+      githubUserId: mockGithubUser.id,
+    },
+  });
+
+  // 3. 문제의 Repository 생성
+  const mockRepo = await this.prisma.repository.upsert({
+    where: { repoId: BigInt(1999902393) },
+    update: { name: 'test-repo' },
+    create: {
+      repoId: BigInt(1999902393),
+      name: 'test-repo',
+      updatedAt: new Date().toISOString(),
+      userId: mockGithubUser.id,
+    },
+  });
+
+  // 4. 가짜 친구용 JWT 토큰 발급
+  const payload = { 
+    userId: mockUser.id, 
+    githubId: mockGithubUser.githubId 
+  };
+  const mockAppToken = this.jwtService.sign(payload);
+
+  return { 
+    message: "가짜 데이터 생성 성공!",
+    mockUserId: mockUser.id, 
+    mockGithubId: mockGithubUser.githubId,
+    mockAppToken: mockAppToken,
+    repoName: mockRepo.name 
+  };
+}
 }

@@ -33,10 +33,10 @@ export class FriendsService {
                     friendId: targetUserId,
                 },
             },
-            select: { id: true },
+            select: { id: true, deletedAt: true },
         });
 
-        if (existingFriendship) {
+        if (existingFriendship && !existingFriendship.deletedAt) {
             throw new ConflictException('Already friends.');
         }
 
@@ -154,12 +154,36 @@ export class FriendsService {
                 },
             });
 
-            await tx.friendship.createMany({
-                data: [
-                    { userId: receiverId, friendId: request.requesterId },
-                    { userId: request.requesterId, friendId: receiverId },
-                ],
-                skipDuplicates: true,
+            await tx.friendship.upsert({
+                where: {
+                    userId_friendId: {
+                        userId: receiverId,
+                        friendId: request.requesterId,
+                    },
+                },
+                update: {
+                    deletedAt: null,
+                },
+                create: {
+                    userId: receiverId,
+                    friendId: request.requesterId,
+                },
+            });
+
+            await tx.friendship.upsert({
+                where: {
+                    userId_friendId: {
+                        userId: request.requesterId,
+                        friendId: receiverId,
+                    },
+                },
+                update: {
+                    deletedAt: null,
+                },
+                create: {
+                    userId: request.requesterId,
+                    friendId: receiverId,
+                },
             });
 
             return updated;
@@ -206,7 +230,8 @@ export class FriendsService {
 
         return this.prisma.friendship.findMany({
             where: {
-                userId: userId
+                userId: userId,
+                deletedAt: null,
             },
             include: {friend: true}
         })
@@ -233,24 +258,36 @@ export class FriendsService {
                     friendId,
                 },
             },
-            select: { id: true },
+            select: { id: true, deletedAt: true },
         });
 
-        if (!existingFriendship) {
+        if (!existingFriendship || existingFriendship.deletedAt) {
             throw new NotFoundException('Friend relationship not found.');
         }
 
         return this.prisma.$transaction(async (tx) => {
-            const result = await tx.friendship.deleteMany({
+            const friendshipResult = await tx.friendship.updateMany({
                 where: {
                     OR: [
                         { userId, friendId },
                         { userId: friendId, friendId: userId },
                     ],
                 },
+                data: {
+                    deletedAt: new Date(),
+                },
             });
 
-            return { deletedCount: result.count };
+            await tx.friendRequest.deleteMany({
+                where: {
+                    OR: [
+                        { requesterId: userId, receiverId: friendId },
+                        { requesterId: friendId, receiverId: userId },
+                    ],
+                },
+            });
+
+            return { deletedCount: friendshipResult.count };
         });
     }
 }
