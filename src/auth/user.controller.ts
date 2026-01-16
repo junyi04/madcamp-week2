@@ -5,9 +5,9 @@ import { GithubCodeDto } from "./dto/user.dto";
 // http://localhost:3000/oauth로 들어오는 요청 처리 선언
 @Controller('oauth')
 export default class UserController {
-  constructor (
+  constructor(
     private readonly userService: UserService,
-  ) {}
+  ) { }
 
   // POST 형식으로 /oauth/github-info 주소에 데이터 보내면 함수 실행
   @Post('/github-info')

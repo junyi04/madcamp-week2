@@ -2,7 +2,7 @@ import { Injectable, UnauthorizedException } from "@nestjs/common";
 import { GithubCodeDto } from "./dto/user.dto";
 import { ConfigService } from "@nestjs/config";
 import axios, { AxiosResponse } from "axios";
-import { PrismaService } from "src/prisma.service";
+import { PrismaService } from "../prisma.service";
 
 export interface IGithubUserTypes {
   githubId: string;
@@ -33,7 +33,7 @@ export default class UserService {
   constructor(
     private configService: ConfigService,
     private prisma: PrismaService,
-  ) {}
+  ) { }
 
   public async getGithubInfo(GithubCodeDto: GithubCodeDto): Promise<IGithubUserTypes> {
     const { code } = GithubCodeDto;
@@ -90,9 +90,9 @@ export default class UserService {
     };
 
     // 유저 정보 저장, 업데이트
-    await this.prisma.user.upsert({
+    await this.prisma.githubUser.upsert({
       where: { githubId: login },
-      update : {
+      update: {
         accessToken: access_token,
         avatar: avatar_url,
         publicRepos: public_repos,
@@ -121,7 +121,7 @@ export default class UserService {
     });
 
     // 2. 현재 로그인한 유저의 id 가져오기
-    const user = await this.prisma.user.findUnique({
+    const user = await this.prisma.githubUser.findUnique({
       where: {
         githubId: data[0]?.owner.login
       },
@@ -156,7 +156,7 @@ export default class UserService {
         name: repo.name,
         id: repo.id,
         updated_at: repo.updated_at,
-      })); 
+      }));
   }
 
   // 선택한 레포의 커밋 가져오기
