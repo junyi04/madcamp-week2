@@ -45,4 +45,24 @@ export default class UserController {
   ) {
     return await this.userService.getCommits(accessToken, owner, repo);
   }
+
+  @Get('/search')
+  public async searchAppUsers(@Query('query') query: string) {
+    const users = await this.userService.searchAppUsers(query);
+    return {
+      stats: 200,
+      message: '유저 검색 결과입니다.',
+      data: users,
+    }
+  }
+
+
+
+
+  // src/auth/user.controller.ts
+
+@Get('/seed-test-data')
+public async seedTestData() {
+  return await this.userService.createMockFriendData();
+}
 }
