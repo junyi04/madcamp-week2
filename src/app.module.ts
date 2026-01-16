@@ -1,3 +1,4 @@
+import { FriendsModule } from './friends/friends.module';
 import { Module } from '@nestjs/common';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
@@ -10,7 +11,8 @@ import { PrismaService } from './prisma.service';
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
-    })
+    }),
+    FriendsModule
   ],
   controllers: [
     AppController,
