@@ -169,6 +169,30 @@ export default class UserService {
       },
     });
 
+    const repository = await this.prisma.repository.findFirst({
+      where: { name: repo },
+    });
+
+    if (!repository) {
+      throw new UnauthorizedException('해당 레포지토리가 DB에 존재하지 않습니다. 레포 목록을 불러와주세요.');
+    }
+
+    for (const item of data) {
+      await this.prisma.commit.upsert({
+        where: { sha: item.sha },
+        update: {
+          message: item.commit.message,
+          date: item.commit.author.date,
+        },
+        create: {
+          sha: item.sha,
+          message: item.commit.message,
+          date: item.commit.author.date,
+          repoId: repository.id,
+        },
+      });
+    }
+
     return data.map((item: any) => ({
       sha: item.sha,
       message: item.commit.message,
