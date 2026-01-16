@@ -113,11 +113,42 @@ export default class UserService {
   public async getRepos(accessToken: string): Promise<IGithubRepo[]> {
     const url = 'https://api.github.com/user/repos?sort=updated&per_page=100';
 
+    // 1. 깃허브 API에서 원본 데이터 가져오기
     const { data } = await axios.get(url, {
       headers: {
         Authorization: `token ${accessToken}`
       },
     });
+
+    // 2. 현재 로그인한 유저의 id 가져오기
+    const user = await this.prisma.user.findUnique({
+      where: {
+        githubId: data[0]?.owner.login
+      },
+    });
+
+    if (!user) {
+      throw new UnauthorizedException('유저 정보를 먼저 등록해야 합니다.');
+    }
+
+    // 3. 레포를 순회하며 DB에 저장
+    for (const repo of data) {
+      if (repo.archived || repo.disabled) continue;
+
+      await this.prisma.repository.upsert({
+        where: { repoId: BigInt(repo.id) },
+        update: {
+          name: repo.name,
+          updatedAt: repo.updated_at,
+        },
+        create: {
+          repoId: BigInt(repo.id),
+          name: repo.name,
+          updatedAt: repo.updated_at,
+          userId: user.id,
+        },
+      });
+    }
 
     return data
       .filter((repo: any) => !repo.archived && !repo.disabled)
