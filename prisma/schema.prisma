@@ -74,6 +74,7 @@ model Repository {
   userId    Int
   user      GithubUser @relation(fields: [userId], references: [id])
   commits   Commit[]
+  stars     Star[]
 }
 
 model Commit {
@@ -83,4 +84,27 @@ model Commit {
   date       String
   repoId     Int
   repository Repository @relation(fields: [repoId], references: [id])
+  stars      Star[]
+}
+
+enum StarType {
+  COMMIT
+  PR
+}
+
+model Star {
+  id         Int      @id @default(autoincrement())
+  type       StarType
+  x          Float
+  y          Float
+  z          Float
+  size       Float
+  color      String
+  repoId     Int
+  repository Repository @relation(fields: [repoId], references: [id])
+  commitId   Int
+  commit     Commit    @relation(fields: [commitId], references: [id])
+
+  @@index([repoId])
+  @@index([commitId])
 }
