@@ -1,0 +1,17 @@
+version: "3.9"
+
+services:
+  db:
+    image: postgres:16
+    container_name: madcamp_week2_db
+    environment:
+      POSTGRES_USER: madcamp
+      POSTGRES_PASSWORD: madcamp
+      POSTGRES_DB: madcamp
+    ports:
+      - "5432:5432"
+    volumes:
+      - madcamp_week2_db:/var/lib/postgresql/data
+
+volumes:
+  madcamp_week2_db:

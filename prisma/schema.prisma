@@ -1,0 +1,53 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum FriendRequestStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+  CANCELED
+}
+
+model User {
+  id       Int    @id @default(autoincrement())
+  nickname String
+
+  sentRequests     FriendRequest[] @relation("SentRequests")
+  receivedRequests FriendRequest[] @relation("ReceivedRequests")
+
+  friends   Friendship[] @relation("UserFriends")
+  friendOf  Friendship[] @relation("UserFriendOf")
+}
+
+model FriendRequest {
+  id          Int                 @id @default(autoincrement())
+  requesterId Int
+  receiverId  Int
+  status      FriendRequestStatus @default(PENDING)
+  createdAt   DateTime            @default(now())
+  respondedAt DateTime?
+
+  requester User @relation("SentRequests", fields: [requesterId], references: [id])
+  receiver  User @relation("ReceivedRequests", fields: [receiverId], references: [id])
+
+  @@unique([requesterId, receiverId])
+  @@index([receiverId])
+}
+
+model Friendship {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  friendId  Int
+  createdAt DateTime @default(now())
+
+  user   User @relation("UserFriends", fields: [userId], references: [id])
+  friend User @relation("UserFriendOf", fields: [friendId], references: [id])
+
+  @@unique([userId, friendId])
+  @@index([friendId])
+}
