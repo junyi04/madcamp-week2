@@ -1,3 +1,5 @@
+// prisma/schema.prisma
+
 generator client {
   provider = "prisma-client-js"
 }
@@ -50,4 +52,35 @@ model Friendship {
 
   @@unique([userId, friendId])
   @@index([friendId])
+  url      = env("DATABASE_URL")
+}
+
+model GithubUser {
+  id           Int          @id @default(autoincrement())
+  githubId     String       @unique
+  avatar       String?
+  name         String?
+  accessToken  String       
+  publicRepos  Int          @default(0)
+  repositories Repository[] 
+  createdAt    DateTime     @default(now())
+}
+
+model Repository {
+  id           Int      @id @default(autoincrement())
+  repoId       BigInt   @unique
+  name         String   
+  updatedAt    String   
+  userId       Int
+  user         User     @relation(fields: [userId], references: [id])
+  commits      Commit[] 
+}
+
+model Commit {
+  id           Int        @id @default(autoincrement())
+  sha          String     @unique 
+  message      String
+  date         String     
+  repoId       Int
+  repository   Repository @relation(fields: [repoId], references: [id])
 }
