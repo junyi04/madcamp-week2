@@ -77,6 +77,68 @@ type GithubPullRequestResponse = {
   html_url?: string | null;
 };
 
+type ConstellationPoint = { x: number; y: number };
+type ConstellationTemplate = {
+  name: string;
+  points: ConstellationPoint[];
+};
+
+const ZODIAC_TEMPLATES: ConstellationTemplate[] = [
+  { name: "aries", points: [{ x: 0, y: 0 }, { x: 1, y: 1 }, { x: 2, y: 0.5 }] },
+  { name: "taurus", points: [{ x: 0, y: 1 }, { x: 1, y: 2 }, { x: 2, y: 1.6 }, { x: 3, y: 1.2 }, { x: 4, y: 1.4 }, { x: 5, y: 2.1 }, { x: 6, y: 1.5 }] },
+  { name: "gemini", points: [{ x: 0, y: 0 }, { x: 0, y: 2 }, { x: 0, y: 4 }, { x: 2, y: 0 }, { x: 2, y: 2 }, { x: 2, y: 4 }] },
+  { name: "cancer", points: [{ x: 0, y: 0.3 }, { x: 1.5, y: 1.2 }, { x: 3, y: 0.4 }] },
+  { name: "leo", points: [{ x: 0, y: 1 }, { x: 1, y: 2 }, { x: 2, y: 2.2 }, { x: 3, y: 1.8 }, { x: 4, y: 1.2 }, { x: 5, y: 1 }, { x: 6, y: 1.4 }, { x: 5, y: 2.6 }, { x: 4, y: 3.1 }] },
+  { name: "virgo", points: [{ x: 0, y: 0.2 }, { x: 1, y: 1 }, { x: 2, y: 0.6 }, { x: 3, y: 1.5 }, { x: 4, y: 1.1 }, { x: 5, y: 2 }, { x: 6, y: 1.6 }, { x: 7, y: 2.5 }] },
+  { name: "libra", points: [{ x: 0, y: 0.2 }, { x: 1, y: 0.6 }, { x: 2, y: 0.2 }] },
+  { name: "scorpio", points: [{ x: 0, y: 0.5 }, { x: 1, y: 0.8 }, { x: 2, y: 1 }, { x: 3, y: 1.2 }, { x: 4, y: 1.4 }, { x: 5, y: 1.6 }, { x: 6, y: 1.9 }, { x: 7, y: 2.2 }, { x: 6.5, y: 2.6 }, { x: 5.5, y: 2.8 }, { x: 4.5, y: 2.6 }, { x: 3.5, y: 2.4 }, { x: 2.5, y: 2.2 }, { x: 1.5, y: 2.0 }] },
+  { name: "sagittarius", points: [{ x: 0, y: 1 }, { x: 1, y: 2 }, { x: 2, y: 1.6 }, { x: 3, y: 2.2 }, { x: 4, y: 1.8 }, { x: 3.2, y: 1 }, { x: 2.2, y: 0.6 }, { x: 1.2, y: 0.8 }, { x: 0.8, y: 1.8 }, { x: 1.8, y: 2.8 }, { x: 2.8, y: 3.2 }] },
+  { name: "capricorn", points: [{ x: 0, y: 1 }, { x: 1, y: 1.6 }, { x: 2, y: 2 }, { x: 3, y: 1.7 }, { x: 4, y: 1.2 }, { x: 5, y: 1.4 }, { x: 6, y: 1.1 }] },
+  { name: "aquarius", points: [{ x: 0, y: 0.6 }, { x: 1, y: 1 }, { x: 2, y: 0.6 }] },
+  { name: "pisces", points: [{ x: 0, y: 1 }, { x: 1, y: 0.6 }, { x: 2, y: 1 }] },
+];
+
+const mulberry32 = (seed: number) => {
+  let t = seed >>> 0;
+  return () => {
+    t += 0x6D2B79F5;
+    let r = Math.imul(t ^ (t >>> 15), 1 | t);
+    r ^= r + Math.imul(r ^ (r >>> 7), 61 | r);
+    return ((r ^ (r >>> 14)) >>> 0) / 4294967296;
+  };
+};
+
+const normalizePoints = (points: ConstellationPoint[]) => {
+  let minX = Number.POSITIVE_INFINITY;
+  let minY = Number.POSITIVE_INFINITY;
+  let maxX = Number.NEGATIVE_INFINITY;
+  let maxY = Number.NEGATIVE_INFINITY;
+
+  for (const point of points) {
+    minX = Math.min(minX, point.x);
+    minY = Math.min(minY, point.y);
+    maxX = Math.max(maxX, point.x);
+    maxY = Math.max(maxY, point.y);
+  }
+
+  const width = maxX - minX || 1;
+  const height = maxY - minY || 1;
+
+  return points.map((point) => ({
+    x: (point.x - minX) / width - 0.5,
+    y: (point.y - minY) / height - 0.5,
+  }));
+};
+
+const rotatePoints = (points: ConstellationPoint[], angleRad: number) => {
+  const cos = Math.cos(angleRad);
+  const sin = Math.sin(angleRad);
+  return points.map((point) => ({
+    x: point.x * cos - point.y * sin,
+    y: point.x * sin + point.y * cos,
+  }));
+};
+
 @Injectable()
 export default class UserService {
   constructor(
@@ -199,7 +261,7 @@ export default class UserService {
     const activeRepos = data.filter(
       (repo) => !repo.archived && !repo.disabled,
     );
-    const repoCoords = this.buildGalaxyCoords(activeRepos);
+    const repoCoords = this.buildGalaxyCoords(activeRepos, githubUser.id);
 
     for (const repo of activeRepos) {
       const coords = repoCoords.get(repo.id);
@@ -240,7 +302,10 @@ export default class UserService {
   }
 
   // 나선형 : 최신 레포는 바깥쪽, 오래된 레포는 안쪽에 위치
-  private buildGalaxyCoords(repos: Array<{ id: number; created_at: string }>) {
+  private buildGalaxyCoords(
+    repos: Array<{ id: number; created_at: string }>,
+    seedBase: number,
+  ) {
     const coords = new Map<number, {
       galaxyX: number;
       galaxyY: number;
@@ -257,25 +322,53 @@ export default class UserService {
         new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
     );
 
-    const minDate = new Date(sorted[0].created_at);
-    const maxDate = new Date(sorted[sorted.length - 1].created_at);
-    const dateRange =
-      maxDate.getTime() - minDate.getTime() || 1;
+    const rng = mulberry32(seedBase || 1);
+    const constellationRadius = 0.28 + rng() * 0.1;
+    const constellationScaleBase = 0.16 + rng() * 0.06;
 
-    const goldenAngle = Math.PI * (3 - Math.sqrt(5));
-    sorted.forEach((repo, index) => {
-      const createdAt = new Date(repo.created_at);
-      const ageRatio =
-        (createdAt.getTime() - minDate.getTime()) / dateRange;
-      const radius = 0.05 + ageRatio * 0.45;
-      const angle = index * goldenAngle;
-      const galaxyX = 0.5 + radius * Math.cos(angle);
-      const galaxyY = 0.5 + radius * Math.sin(angle);
-      const galaxyZ = this.hash01(repo.id * 0.0001 + 7) * 0.2;
-      const galaxySize = 2 + (1 - ageRatio) * 1.5;
+    const templateIndices = ZODIAC_TEMPLATES.map((_, index) => index);
+    const shuffleTemplates = () => {
+      for (let i = templateIndices.length - 1; i > 0; i -= 1) {
+        const j = Math.floor(rng() * (i + 1));
+        [templateIndices[i], templateIndices[j]] = [templateIndices[j], templateIndices[i]];
+      }
+    };
+    shuffleTemplates();
 
-      coords.set(repo.id, { galaxyX, galaxyY, galaxyZ, galaxySize });
-    });
+    let repoIndex = 0;
+    let constellationIndex = 0;
+    let templateCursor = 0;
+    while (repoIndex < sorted.length) {
+      if (templateCursor >= templateIndices.length) {
+        shuffleTemplates();
+        templateCursor = 0;
+      }
+
+      const template = ZODIAC_TEMPLATES[templateIndices[templateCursor]];
+      templateCursor += 1;
+
+      const normalized = normalizePoints(template.points);
+      const rotation = rng() * Math.PI * 2;
+      const rotated = rotatePoints(normalized, rotation);
+      const angle = (constellationIndex % 12) * (Math.PI * 2 / 12) + (rng() - 0.5) * 0.4;
+      const centerX = 0.5 + Math.cos(angle) * constellationRadius + (rng() - 0.5) * 0.08;
+      const centerY = 0.5 + Math.sin(angle) * constellationRadius + (rng() - 0.5) * 0.08;
+      const constellationScale = constellationScaleBase * (0.85 + rng() * 0.3);
+
+      for (let i = 0; i < rotated.length && repoIndex < sorted.length; i += 1) {
+        const repo = sorted[repoIndex];
+        const point = rotated[i];
+        const galaxyX = Math.min(0.98, Math.max(0.02, centerX + point.x * constellationScale));
+        const galaxyY = Math.min(0.98, Math.max(0.02, centerY + point.y * constellationScale));
+        const galaxyZ = 0.02 + rng() * 0.08;
+        const galaxySize = 2.2 + rng() * 0.6;
+
+        coords.set(repo.id, { galaxyX, galaxyY, galaxyZ, galaxySize });
+        repoIndex += 1;
+      }
+
+      constellationIndex += 1;
+    }
 
     return coords;
   }
@@ -366,6 +459,7 @@ export default class UserService {
         repository,
         commit.id,
         item.sha,
+        item.commit.message,
         ageRatio,
       );
     }
@@ -448,16 +542,20 @@ export default class UserService {
     repository: { id: number; galaxyX: number; galaxyY: number; galaxyZ: number },
     commitId: number,
     sha: string,
+    message: string,
     ageRatio: number,
   ) {
-    const coords = this.toSpiralArmCoords(
+    const typeKey = this.getCommitTypeKey(message);
+    const coords = this.toRepoClusterCoords(
       repository.galaxyX,
       repository.galaxyY,
-      ageRatio,
+      repository.galaxyZ,
+      this.hashStringToNumber(repository.id.toString()),
       this.hashStringToNumber(sha),
-      3,
-      0.2,
+      typeKey,
+      0.035 + ageRatio * 0.02,
     );
+    const color = this.getCommitColor(message);
 
     const existing = await this.prisma.star.findFirst({
       where: {
@@ -476,7 +574,7 @@ export default class UserService {
           y: coords.y,
           z: coords.z,
           size: 3,
-          color: "#FFFFFF",
+          color,
         },
       });
       return;
@@ -489,7 +587,7 @@ export default class UserService {
         y: coords.y,
         z: coords.z,
         size: 3,
-        color: "#FFFFFF",
+        color,
         repoId: repository.id,
         commitId,
       },
@@ -572,6 +670,37 @@ export default class UserService {
     return { x, y, z };
   }
 
+  private toRepoClusterCoords(
+    centerX: number,
+    centerY: number,
+    centerZ: number,
+    repoSeed: number,
+    commitSeed: number,
+    typeKey: string,
+    radius: number,
+  ) {
+    const typeSeed = this.hashStringToNumber(typeKey);
+    const clusterRng = mulberry32(repoSeed ^ typeSeed);
+    const clusterAngle = clusterRng() * Math.PI * 2;
+    const clusterDistance = radius * (1.2 + clusterRng() * 0.6);
+    const clusterCenterX = centerX + Math.cos(clusterAngle) * clusterDistance;
+    const clusterCenterY = centerY + Math.sin(clusterAngle) * clusterDistance;
+    const clusterCenterZ = centerZ + (clusterRng() - 0.5) * 0.03;
+
+    const rng = mulberry32(commitSeed);
+    const angle = rng() * Math.PI * 2;
+    const distance = Math.sqrt(rng()) * radius * 0.6;
+    const x = clusterCenterX + Math.cos(angle) * distance;
+    const y = clusterCenterY + Math.sin(angle) * distance;
+    const z = clusterCenterZ + (rng() - 0.5) * 0.02;
+
+    return {
+      x: Math.min(0.98, Math.max(0.02, x)),
+      y: Math.min(0.98, Math.max(0.02, y)),
+      z: Math.min(0.98, Math.max(0.02, z)),
+    };
+  }
+
   // 날짜 배열 최소, 최대 계산
   private getDateRange(dates: Date[]) {
     if (!dates.length) {
@@ -598,6 +727,34 @@ export default class UserService {
       hash = (hash * 31 + value.charCodeAt(i)) >>> 0;
     }
     return hash;
+  }
+
+  private getCommitColor(message: string) {
+    const normalized = message.trim().toLowerCase();
+    if (normalized.startsWith("feat")) {
+      return "#FFD166";
+    }
+    if (normalized.startsWith("fix")) {
+      return "#EF476F";
+    }
+    if (normalized.startsWith("docs")) {
+      return "#118AB2";
+    }
+    return "#E5E5E5";
+  }
+
+  private getCommitTypeKey(message: string) {
+    const normalized = message.trim().toLowerCase();
+    if (normalized.startsWith("feat")) {
+      return "feat";
+    }
+    if (normalized.startsWith("fix")) {
+      return "fix";
+    }
+    if (normalized.startsWith("docs")) {
+      return "docs";
+    }
+    return "other";
   }
 
   // Github API 호출 함수 (rate limit, 권한, 미존재 예외 처리)
