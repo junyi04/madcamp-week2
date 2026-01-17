@@ -1,9 +1,12 @@
-import { Body, Controller, Get, Post, Query } from "@nestjs/common";
+import { Body, Controller, Get, Post, Query, Req, UnauthorizedException, UseGuards } from "@nestjs/common";
 import UserService from "./user.service";
 import { GithubCodeDto } from "./dto/user.dto";
+import { AuthGuard } from "@nestjs/passport";
+import { ApiBearerAuth } from "@nestjs/swagger";
 
 // http://localhost:3000/oauth로 들어오는 요청 처리 선언
 @Controller('oauth')
+@ApiBearerAuth('access-token')
 export default class UserController {
   constructor (
     private readonly userService: UserService,
@@ -60,7 +63,14 @@ export default class UserController {
   }
 
   @Get('/search')
-  public async searchAppUsers(@Query('query') query: string) {
+  @UseGuards(AuthGuard('jwt'))
+  public async searchAppUsers(
+    @Req() req: { user?: { userId?: number } },
+    @Query('query') query: string,
+  ) {
+    if (!req.user?.userId) {
+      throw new UnauthorizedException('Missing user id.');
+    }
     const users = await this.userService.searchAppUsers(query);
     return {
       stats: 200,
