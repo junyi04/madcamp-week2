@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { StarType } from '@prisma/client';
 import { PrismaService } from 'src/prisma/prisma.service';
 
@@ -36,17 +36,10 @@ export class UniverseService {
   constructor(private readonly prisma: PrismaService) {}
 
   async getMySummary(userId: number, range?: string, types?: string) {
-    const githubUser = await this.prisma.githubUser.findUnique({
-      where: { id: userId },
-      select: { id: true },
-    });
-
-    if (!githubUser) {
-      throw new NotFoundException('User not found.');
-    }
+    const githubUserId = await this.getGithubUserId(userId);
 
     const repositories = await this.prisma.repository.findMany({
-      where: { userId },
+      where: { userId: githubUserId },
       select: { id: true, name: true, updatedAt: true },
       orderBy: { updatedAt: 'desc' },
     });
@@ -80,17 +73,8 @@ export class UniverseService {
     from?: string,
     to?: string,
     types?: string,
-    limit?: number,
-    cursor?: number,
   ) {
-    const githubUser = await this.prisma.githubUser.findUnique({
-      where: { id: userId },
-      select: { id: true },
-    });
-
-    if (!githubUser) {
-      throw new NotFoundException('User not found.');
-    }
+    const githubUserId = await this.getGithubUserId(userId);
 
     const repository =
       (await this.prisma.repository.findUnique({
@@ -100,7 +84,7 @@ export class UniverseService {
         where: { repoId: BigInt(repoId) },
       }));
 
-    if (!repository || repository.userId !== userId) {
+    if (!repository || repository.userId !== githubUserId) {
       throw new NotFoundException('Repository not found.');
     }
 
@@ -125,8 +109,7 @@ export class UniverseService {
         },
       },
       orderBy: { id: 'desc' },
-      ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
-      ...(limit ? { take: limit } : {}),
+      take: DEFAULT_GALAXY_LIMIT,
     });
 
     const commitCount = stars.filter((star) => star.type === StarType.COMMIT)
@@ -167,6 +150,30 @@ export class UniverseService {
     };
   }
 
+  async getUserSummary(
+    viewerId: number,
+    targetUserId: number,
+    range?: string,
+    types?: string,
+  ) {
+    await this.assertFriendship(viewerId, targetUserId);
+
+    return this.getMySummary(targetUserId, range, types);
+  }
+
+  async getUserGalaxy(
+    viewerId: number,
+    targetUserId: number,
+    repoId: number,
+    from?: string,
+    to?: string,
+    types?: string,
+  ) {
+    await this.assertFriendship(viewerId, targetUserId);
+
+    return this.getMyGalaxy(targetUserId, repoId, from, to, types);
+  }
+
   private parseTypes(types?: string): string[] {
     if (!types) {
       return ['commit'];
@@ -191,6 +198,42 @@ export class UniverseService {
     }
 
     return starTypes.length ? starTypes : [StarType.COMMIT];
+  }
+
+  private async assertFriendship(viewerId: number, targetUserId: number) {
+    if (viewerId === targetUserId) {
+      return;
+    }
+
+    const friendship = await this.prisma.friendship.findFirst({
+      where: {
+        userId: viewerId,
+        friendId: targetUserId,
+        deletedAt: null,
+      },
+      select: { id: true },
+    });
+
+    if (!friendship) {
+      throw new ForbiddenException('Not friends.');
+    }
+  }
+
+  private async getGithubUserId(userId: number) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { githubUserId: true },
+    });
+
+    if (!user) {
+      throw new NotFoundException('User not found.');
+    }
+
+    if (!user.githubUserId) {
+      throw new NotFoundException('GitHub account not linked.');
+    }
+
+    return user.githubUserId;
   }
 
   private async getCommitCountsByRepo(
