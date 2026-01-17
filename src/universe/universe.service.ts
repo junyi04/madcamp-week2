@@ -17,15 +17,19 @@ type StarObject = {
   z: number;
   size: number;
   color: string;
-  commit: {
+  commit?: {
     id: number;
     sha: string;
     message: string;
     date: string;
-  };
+    type: string;
+  } | null;
+  pullRequest?: {
+    id: string;
+    title?: string | null;
+    url?: string | null;
+  } | null;
 };
-
-const DEFAULT_GALAXY_LIMIT = 200;
 
 @Injectable()
 export class UniverseService {
@@ -120,7 +124,19 @@ export class UniverseService {
       z: star.z,
       size: star.size,
       color: star.color,
-      commit: star.commit,
+      commit: star.commit
+        ? {
+            ...star.commit,
+            type: this.getCommitType(star.commit.message),
+          }
+        : null,
+      pullRequest: star.pullRequestId
+        ? {
+            id: star.pullRequestId.toString(),
+            title: star.pullRequestTitle,
+            url: star.pullRequestUrl,
+          }
+        : null,
     }));
 
     return {
@@ -289,5 +305,19 @@ export class UniverseService {
     }
 
     return Object.keys(filter).length ? filter : undefined;
+  }
+
+  private getCommitType(message: string) {
+    const normalized = message.trim().toLowerCase();
+    if (normalized.startsWith("feat")) {
+      return "feat";
+    }
+    if (normalized.startsWith("fix")) {
+      return "fix";
+    }
+    if (normalized.startsWith("docs")) {
+      return "docs";
+    }
+    return "other";
   }
 }

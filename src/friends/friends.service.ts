@@ -26,17 +26,16 @@ export class FriendsService {
             throw new NotFoundException('Target user not found.');
         }
 
-        const existingFriendship = await this.prisma.friendship.findUnique({
+        const existingFriendship = await this.prisma.friendship.findFirst({
             where: {
-                userId_friendId: {
-                    userId: requesterId,
-                    friendId: targetUserId,
-                },
+                userId: requesterId,
+                friendId: targetUserId,
+                deletedAt: null,
             },
-            select: { id: true, deletedAt: true },
+            select: { id: true },
         });
 
-        if (existingFriendship && !existingFriendship.deletedAt) {
+        if (existingFriendship) {
             throw new ConflictException('Already friends.');
         }
 
@@ -69,7 +68,18 @@ export class FriendsService {
             }
 
             if (existingRequest.status === FriendRequestStatus.ACCEPTED) {
-                throw new ConflictException('Already friends.');
+                const activeFriendship = await this.prisma.friendship.findFirst({
+                    where: {
+                        userId: requesterId,
+                        friendId: targetUserId,
+                        deletedAt: null,
+                    },
+                    select: { id: true },
+                });
+
+                if (activeFriendship) {
+                    throw new ConflictException('Already friends.');
+                }
             }
 
             return this.prisma.friendRequest.update({
@@ -86,11 +96,28 @@ export class FriendsService {
             });
         }
 
-        return this.prisma.friendRequest.create({
-            data: {
-                requesterId,
-                receiverId: targetUserId,
-            },
+        return this.prisma.$transaction(async (tx) => {
+            if (reverseRequest && reverseRequest.status !== FriendRequestStatus.PENDING) {
+                await tx.friendRequest.update({
+                    where: {
+                        requesterId_receiverId: {
+                            requesterId: targetUserId,
+                            receiverId: requesterId,
+                        },
+                    },
+                    data: {
+                        status: FriendRequestStatus.CANCELED,
+                        respondedAt: new Date(),
+                    },
+                });
+            }
+
+            return tx.friendRequest.create({
+                data: {
+                    requesterId,
+                    receiverId: targetUserId,
+                },
+            });
         });
     }
 
@@ -186,6 +213,18 @@ export class FriendsService {
                 },
             });
 
+            await tx.friendRequest.updateMany({
+                where: {
+                    requesterId: receiverId,
+                    receiverId: request.requesterId,
+                    status: FriendRequestStatus.PENDING,
+                },
+                data: {
+                    status: FriendRequestStatus.CANCELED,
+                    respondedAt: new Date(),
+                },
+            });
+
             return updated;
         });
     }
@@ -266,15 +305,12 @@ export class FriendsService {
         }
 
         return this.prisma.$transaction(async (tx) => {
-            const friendshipResult = await tx.friendship.updateMany({
+            const friendshipResult = await tx.friendship.deleteMany({
                 where: {
                     OR: [
                         { userId, friendId },
                         { userId: friendId, friendId: userId },
                     ],
-                },
-                data: {
-                    deletedAt: new Date(),
                 },
             });
 
