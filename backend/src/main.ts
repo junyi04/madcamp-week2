@@ -11,6 +11,8 @@ async function bootstrap() {
 
   const app = await NestFactory.create(AppModule);
 
+  app.enableCors({ origin: 'http://localhost:5173' })
+
   // Swagger 설정 객체 생성
   const config = new DocumentBuilder()
     .setTitle("Code Galaxy API")
