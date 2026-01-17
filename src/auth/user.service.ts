@@ -15,9 +15,9 @@ import { StarType } from "@prisma/client";
 export interface IGithubUserTypes {
   githubId: string;
   avatar: string;
-  name: string;
-  description: string;
-  location: string;
+  name: string | null;
+  description: string | null;
+  location: string | null;
   accessToken: string;
   totalStats: number;
   publicRepos: number;
@@ -37,6 +37,46 @@ export interface IcommitStar {
   date: string;
 }
 
+type GithubUserResponse = {
+  login: string;
+  avatar_url: string;
+  name: string | null;
+  bio: string | null;
+  company: string | null;
+  public_repos: number;
+  followers: number;
+};
+
+type GithubRepoResponse = {
+  id: number;
+  name: string;
+  updated_at: string;
+  created_at: string;
+  archived: boolean;
+  disabled: boolean;
+};
+
+type GithubCommitResponse = {
+  sha: string;
+  commit: {
+    message: string;
+    author: {
+      date: string;
+    };
+  };
+};
+
+type GithubRepoInfoResponse = {
+  id: number;
+};
+
+type GithubPullRequestResponse = {
+  id: number;
+  created_at: string;
+  title?: string | null;
+  html_url?: string | null;
+};
+
 @Injectable()
 export default class UserService {
   constructor(
@@ -45,6 +85,7 @@ export default class UserService {
     private jwtService: JwtService,
   ) {}
 
+  // Github OAuth 통해 access Token 교환 + 유저 정보 조회
   public async getGithubInfo(
     githubCodeDto: GithubCodeDto,
   ): Promise<IGithubUserTypes> {
@@ -70,7 +111,10 @@ export default class UserService {
 
     const { access_token } = response.data;
 
-    const { data } = await this.githubGet("https://api.github.com/user", access_token);
+    const { data } = await this.githubGet<GithubUserResponse>(
+      "https://api.github.com/user",
+      access_token,
+    );
 
     const { login, avatar_url, name, bio, company, public_repos, followers } =
       data;
@@ -129,15 +173,19 @@ export default class UserService {
     };
   }
 
+  // 레포 목록 받음
   public async getRepos(accessToken: string): Promise<IGithubRepo[]> {
     const url = "https://api.github.com/user/repos?sort=updated&per_page=100";
-    const { data } = await this.githubGet(url, accessToken);
+    const { data } = await this.githubGet<GithubRepoResponse[]>(url, accessToken);
 
     if (!Array.isArray(data) || data.length === 0) {
       return [];
     }
 
-    const userResponse = await this.githubGet("https://api.github.com/user", accessToken);
+    const userResponse = await this.githubGet<GithubUserResponse>(
+      "https://api.github.com/user",
+      accessToken,
+    );
 
     const githubLogin = userResponse.data.login;
     const githubUser = await this.prisma.githubUser.findUnique({
@@ -149,7 +197,7 @@ export default class UserService {
     }
 
     const activeRepos = data.filter(
-      (repo: any) => !repo.archived && !repo.disabled,
+      (repo) => !repo.archived && !repo.disabled,
     );
     const repoCoords = this.buildGalaxyCoords(activeRepos);
 
@@ -191,7 +239,7 @@ export default class UserService {
       }));
   }
 
-  // 최신 레포는 바깥쪽, 오래된 레포는 안쪽에 위치
+  // 나선형 : 최신 레포는 바깥쪽, 오래된 레포는 안쪽에 위치
   private buildGalaxyCoords(repos: Array<{ id: number; created_at: string }>) {
     const coords = new Map<number, {
       galaxyX: number;
@@ -232,6 +280,7 @@ export default class UserService {
     return coords;
   }
 
+  // 난수 0~1 생성
   private hash01(value: number) {
     const raw = Math.sin(value) * 10000;
     return raw - Math.floor(raw);
@@ -245,7 +294,7 @@ export default class UserService {
   ): Promise<IcommitStar[]> {
     const url = `https://api.github.com/repos/${owner}/${repo}/commits?per_page=30`;
 
-    const { data } = await this.githubGet(url, accessToken);
+    const { data } = await this.githubGet<GithubCommitResponse[]>(url, accessToken);
 
     const ownerUser = await this.prisma.githubUser.findUnique({
       where: { githubId: owner },
@@ -255,15 +304,23 @@ export default class UserService {
       throw new UnauthorizedException("Owner is not registered.");
     }
 
+    const repoInfo = await this.githubGet<GithubRepoInfoResponse>(
+      `https://api.github.com/repos/${owner}/${repo}`,
+      accessToken,
+    );
+    if (!repoInfo.data?.id) {
+      throw new NotFoundException("Repository not found.");
+    }
+
     const repository = await this.prisma.repository.findFirst({
       where: {
-        name: repo,
+        repoId: BigInt(repoInfo.data.id),
         userId: ownerUser.id,
       },
     });
 
     if (!repository) {
-      throw new UnauthorizedException("Repository not found.");
+      throw new NotFoundException("Repository not found.");
     }
 
     if (!Array.isArray(data) || data.length === 0) {
@@ -273,6 +330,7 @@ export default class UserService {
         repo,
         repository,
       );
+      // repoId로 DB에서 Repository 조회
       await this.prisma.repository.update({
         where: { id: repository.id },
         data: { lastSyncedAt: new Date() },
@@ -281,7 +339,7 @@ export default class UserService {
     }
 
     const commitDates = data.map(
-      (item: any) => new Date(item.commit.author.date),
+      (item) => new Date(item.commit.author.date),
     );
     const { minDate, maxDate } = this.getDateRange(commitDates);
 
@@ -304,7 +362,12 @@ export default class UserService {
         minDate,
         maxDate,
       );
-      await this.upsertCommitStar(repository, commit.id, item.sha, ageRatio);
+      await this.upsertCommitStar(
+        repository,
+        commit.id,
+        item.sha,
+        ageRatio,
+      );
     }
 
     await this.syncPullRequestStars(accessToken, owner, repo, repository);
@@ -314,7 +377,7 @@ export default class UserService {
       data: { lastSyncedAt: new Date() },
     });
 
-    return data.map((item: any) => ({
+    return data.map((item) => ({
       sha: item.sha,
       message: item.commit.message,
       date: item.commit.author.date,
@@ -345,6 +408,7 @@ export default class UserService {
     });
   }
 
+  // 커밋 1개를 Star로 만들거나 갱신
   private async syncPullRequestStars(
     accessToken: string,
     owner: string,
@@ -357,13 +421,16 @@ export default class UserService {
     },
   ) {
     const url = `https://api.github.com/repos/${owner}/${repo}/pulls?state=all&per_page=30`;
-    const { data } = await this.githubGet(url, accessToken);
+    const { data } = await this.githubGet<GithubPullRequestResponse[]>(
+      url,
+      accessToken,
+    );
 
-    if (!data || data.length === 0) {
+    if (!Array.isArray(data) || data.length === 0) {
       return;
     }
 
-    const prDates = data.map((pr: any) => new Date(pr.created_at));
+    const prDates = data.map((pr) => new Date(pr.created_at));
     const { minDate, maxDate } = this.getDateRange(prDates);
 
     for (const pr of data) {
@@ -376,6 +443,7 @@ export default class UserService {
     }
   }
 
+  // PR 1개를 Star로 만들거나 갱신
   private async upsertCommitStar(
     repository: { id: number; galaxyX: number; galaxyY: number; galaxyZ: number },
     commitId: number,
@@ -408,7 +476,7 @@ export default class UserService {
           y: coords.y,
           z: coords.z,
           size: 3,
-          color: "#FFD166",
+          color: "#FFFFFF",
         },
       });
       return;
@@ -421,7 +489,7 @@ export default class UserService {
         y: coords.y,
         z: coords.z,
         size: 3,
-        color: "#FFD166",
+        color: "#FFFFFF",
         repoId: repository.id,
         commitId,
       },
@@ -430,7 +498,7 @@ export default class UserService {
 
   private async upsertPullRequestStar(
     repository: { id: number; galaxyX: number; galaxyY: number; galaxyZ: number },
-    pr: any,
+    pr: GithubPullRequestResponse,
     ageRatio: number,
   ) {
     const coords = this.toSpiralArmCoords(
@@ -445,7 +513,7 @@ export default class UserService {
     const existing = await this.prisma.star.findFirst({
       where: {
         repoId: repository.id,
-        pullRequestId: BigInt(pr.id),
+    pullRequestId: BigInt(pr.id),
         type: StarType.PR,
       },
       select: { id: true },
@@ -477,12 +545,13 @@ export default class UserService {
         color: "#8ECAE6",
         repoId: repository.id,
         pullRequestId: BigInt(pr.id),
-        pullRequestTitle: pr.title ?? null,
-        pullRequestUrl: pr.html_url ?? null,
+    pullRequestTitle: pr.title ?? null,
+    pullRequestUrl: pr.html_url ?? null,
       },
     });
   }
 
+  // 나선팔 좌표 생성 로직
   private toSpiralArmCoords(
     centerX: number,
     centerY: number,
@@ -503,6 +572,7 @@ export default class UserService {
     return { x, y, z };
   }
 
+  // 날짜 배열 최소, 최대 계산
   private getDateRange(dates: Date[]) {
     if (!dates.length) {
       const now = new Date();
@@ -513,6 +583,7 @@ export default class UserService {
     return { minDate: sorted[0], maxDate: sorted[sorted.length - 1] };
   }
 
+  // 날짜를 0~1 비율로 변환
   private getAgeRatio(date: Date, minDate: Date, maxDate: Date) {
     const range = maxDate.getTime() - minDate.getTime();
     if (range <= 0) {
@@ -529,7 +600,8 @@ export default class UserService {
     return hash;
   }
 
-  private async githubGet<T>(url: string, accessToken: string) {
+  // Github API 호출 함수 (rate limit, 권한, 미존재 예외 처리)
+  private async githubGet<T>(url: string, accessToken: string): Promise<AxiosResponse<T>> {
     try {
       return await axios.get<T>(url, {
         headers: { Authorization: `token ${accessToken}` },

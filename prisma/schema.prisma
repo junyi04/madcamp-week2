@@ -86,7 +86,6 @@ model Repository {
   lastSyncedAt DateTime?
   userId       Int
   user         GithubUser @relation(fields: [userId], references: [id])
-  lastSyncAt   DateTime
 
   galaxyX      Float
   galaxyY      Float

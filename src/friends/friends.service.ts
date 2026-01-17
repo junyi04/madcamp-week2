@@ -305,28 +305,21 @@ export class FriendsService {
         }
 
         return this.prisma.$transaction(async (tx) => {
-            const friendshipResult = await tx.friendship.updateMany({
+            const friendshipResult = await tx.friendship.deleteMany({
                 where: {
                     OR: [
                         { userId, friendId },
                         { userId: friendId, friendId: userId },
                     ],
                 },
-                data: {
-                    deletedAt: new Date(),
-                },
             });
 
-            await tx.friendRequest.updateMany({
+            await tx.friendRequest.deleteMany({
                 where: {
                     OR: [
                         { requesterId: userId, receiverId: friendId },
                         { requesterId: friendId, receiverId: userId },
                     ],
-                },
-                data: {
-                    status: FriendRequestStatus.CANCELED,
-                    respondedAt: new Date(),
                 },
             });
 

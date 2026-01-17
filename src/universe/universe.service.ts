@@ -22,6 +22,7 @@ type StarObject = {
     sha: string;
     message: string;
     date: string;
+    type: string;
   } | null;
   pullRequest?: {
     id: string;
@@ -140,7 +141,12 @@ export class UniverseService {
       z: star.z,
       size: star.size,
       color: star.color,
-      commit: star.commit ?? null,
+      commit: star.commit
+        ? {
+            ...star.commit,
+            type: this.getCommitType(star.commit.message),
+          }
+        : null,
       pullRequest: star.pullRequestId
         ? {
             id: star.pullRequestId.toString(),
@@ -256,5 +262,19 @@ export class UniverseService {
     }
 
     return Object.keys(filter).length ? filter : undefined;
+  }
+
+  private getCommitType(message: string) {
+    const normalized = message.trim().toLowerCase();
+    if (normalized.startsWith("feat")) {
+      return "feat";
+    }
+    if (normalized.startsWith("fix")) {
+      return "fix";
+    }
+    if (normalized.startsWith("docs")) {
+      return "docs";
+    }
+    return "other";
   }
 }
