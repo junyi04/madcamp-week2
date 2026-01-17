@@ -16,6 +16,12 @@ enum FriendRequestStatus {
   CANCELED
 }
 
+enum StarType {
+  COMMIT
+  PR
+}
+
+
 model User {
   id       Int    @id @default(autoincrement())
   nickname String
@@ -76,8 +82,17 @@ model Repository {
   repoId       BigInt   @unique
   name         String   
   updatedAt    String   
+  createdAt    DateTime @default(now())
+  lastSyncedAt DateTime?
   userId       Int
   user         GithubUser @relation(fields: [userId], references: [id])
+  lastSyncAt   DateTime
+
+  galaxyX      Float
+  galaxyY      Float
+  galaxyZ      Float
+  galaxySize   Float
+
   commits      Commit[] 
   stars        Star[]
 }
@@ -89,12 +104,8 @@ model Commit {
   date         String     
   repoId       Int
   repository   Repository @relation(fields: [repoId], references: [id])
-  stars        Star[]
-}
 
-enum StarType {
-  COMMIT
-  PR
+  stars        Star[]
 }
 
 model Star {
@@ -105,11 +116,16 @@ model Star {
   z          Float
   size       Float
   color      String
+  
   repoId     Int
   repository Repository @relation(fields: [repoId], references: [id])
-  commitId   Int
-  commit     Commit    @relation(fields: [commitId], references: [id])
+  commitId   Int?
+  commit     Commit?   @relation(fields: [commitId], references: [id])
+  pullRequestId    BigInt?
+  pullRequestTitle String?
+  pullRequestUrl   String?
 
   @@index([repoId])
   @@index([commitId])
+  @@index([pullRequestId])
 }

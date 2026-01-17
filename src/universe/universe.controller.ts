@@ -2,30 +2,34 @@ import {
   BadRequestException,
   Controller,
   Get,
-  Headers,
   Param,
   Query,
+  Req,
   UnauthorizedException,
+  UseGuards,
 } from '@nestjs/common';
-import { ApiOperation } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { UniverseService } from './universe.service';
+import { AuthGuard } from '@nestjs/passport';
 
 @Controller('universe')
+@UseGuards(AuthGuard('jwt'))
+@ApiBearerAuth('access-token')
 export class UniverseController {
   constructor(private readonly universeService: UniverseService) { }
 
   @Get('me/summary')
   @ApiOperation({ summary: "내 우주 요약" })
   async getMySummary(
-    @Headers('x-user-id') userIdHeader: string | undefined,
+    @Req() req,
     @Query('range') range?: string,
     @Query('types') types?: string,
   ) {
-    if (!userIdHeader) {
+    if (!req.user?.userId) {
       throw new UnauthorizedException('Missing user id.');
     }
 
-    const userId = Number(userIdHeader);
+    const userId = Number(req.user.userId);
 
     if (Number.isNaN(userId)) {
       throw new BadRequestException('Invalid user id.');
@@ -37,7 +41,7 @@ export class UniverseController {
   @Get('me/galaxies/:repoId')
   @ApiOperation({ summary: "내 우주에 있는 Star 정보 불러오기" })
   async getMyGalaxy(
-    @Headers('x-user-id') userIdHeader: string | undefined,
+    @Req() req,
     @Param('repoId') repoIdParam: string,
     @Query('from') from?: string,
     @Query('to') to?: string,
@@ -45,11 +49,11 @@ export class UniverseController {
     @Query('limit') limitParam?: string,
     @Query('cursor') cursorParam?: string,
   ) {
-    if (!userIdHeader) {
+    if (!req.user?.userId) {
       throw new UnauthorizedException('Missing user id.');
     }
 
-    const userId = Number(userIdHeader);
+    const userId = Number(req.user.userId);
     const repoId = Number(repoIdParam);
 
     if (Number.isNaN(userId) || Number.isNaN(repoId)) {

@@ -1,37 +1,52 @@
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, StarType } from "@prisma/client";
 
 const prisma = new PrismaClient();
 
 const run = async () => {
+  if (process.env.NODE_ENV !== "development") {
+    console.error("seed-universe is only available in development.");
+    process.exit(1);
+  }
+
   const githubUser = await prisma.githubUser.create({
     data: {
-      githubId: 'seed-user',
-      avatar: 'https://example.com/avatar.png',
-      name: 'Seed User',
-      accessToken: 'seed-token',
+      githubId: "seed-user",
+      avatar: "https://example.com/avatar.png",
+      name: "Seed User",
+      accessToken: "seed-token",
       publicRepos: 2,
     },
   });
 
+  const now = new Date();
   const repoA = await prisma.repository.create({
     data: {
       repoId: BigInt(1001),
-      name: 'seed-repo-a',
-      updatedAt: new Date().toISOString(),
+      name: "seed-repo-a",
+      updatedAt: now.toISOString(),
+      createdAt: new Date(now.getTime() - 1000 * 60 * 60 * 24 * 200),
       userId: githubUser.id,
+      galaxyX: 0.45,
+      galaxyY: 0.52,
+      galaxyZ: 0.05,
+      galaxySize: 2.5,
     },
   });
 
   const repoB = await prisma.repository.create({
     data: {
       repoId: BigInt(1002),
-      name: 'seed-repo-b',
-      updatedAt: new Date().toISOString(),
+      name: "seed-repo-b",
+      updatedAt: now.toISOString(),
+      createdAt: new Date(now.getTime() - 1000 * 60 * 60 * 24 * 50),
       userId: githubUser.id,
+      galaxyX: 0.62,
+      galaxyY: 0.38,
+      galaxyZ: 0.1,
+      galaxySize: 2.1,
     },
   });
 
-  const now = new Date();
   const commitDates = [
     new Date(now.getTime() - 1000 * 60 * 60 * 24 * 2),
     new Date(now.getTime() - 1000 * 60 * 60 * 24 * 5),
@@ -64,35 +79,26 @@ const run = async () => {
     ),
   );
 
-  const toStarData = (commit: { id: number }, idx: number) => ({
-    type: 'COMMIT' as const,
+  const toStarData = (commit: { id: number }, idx: number, repoId: number) => ({
+    type: StarType.COMMIT,
     x: (idx + 1) * 0.1,
     y: (idx + 1) * 0.2,
-    z: (idx + 1) * 0.3,
+    z: (idx + 1) * 0.03,
     size: 3 + idx,
-    color: '#FFD166',
-    repoId: repoA.id,
+    color: "#FFD166",
+    repoId,
     commitId: commit.id,
   });
 
   await prisma.star.createMany({
-    data: commitsA.map((commit, idx) => toStarData(commit, idx)),
+    data: commitsA.map((commit, idx) => toStarData(commit, idx, repoA.id)),
   });
 
   await prisma.star.createMany({
-    data: commitsB.map((commit, idx) => ({
-      type: 'COMMIT' as const,
-      x: (idx + 1) * 0.15,
-      y: (idx + 1) * 0.25,
-      z: (idx + 1) * 0.35,
-      size: 3 + idx,
-      color: '#06D6A0',
-      repoId: repoB.id,
-      commitId: commit.id,
-    })),
+    data: commitsB.map((commit, idx) => toStarData(commit, idx, repoB.id)),
   });
 
-  console.log('Seeded universe data', {
+  console.log("Seeded universe data", {
     githubUserId: githubUser.id,
     repoAId: repoA.id,
     repoBId: repoB.id,

@@ -1,0 +1,2 @@
+-- AlterTable
+ALTER TABLE "Star" ALTER COLUMN "pullRequestId" SET DATA TYPE BIGINT;

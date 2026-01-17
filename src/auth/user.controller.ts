@@ -46,6 +46,19 @@ export default class UserController {
     return await this.userService.getCommits(accessToken, owner, repo);
   }
 
+  @Post('/commits/sync')
+  public async syncCommits(
+    @Query('accessToken') accessToken: string,
+    @Query('owner') owner: string,
+    @Query('repo') repo: string,
+  ) {
+    await this.userService.getCommits(accessToken, owner, repo);
+    return {
+      stats: 202,
+      message: 'Sync started',
+    };
+  }
+
   @Get('/search')
   public async searchAppUsers(@Query('query') query: string) {
     const users = await this.userService.searchAppUsers(query);
@@ -55,14 +68,4 @@ export default class UserController {
       data: users,
     }
   }
-
-
-
-
-  // src/auth/user.controller.ts
-
-@Get('/seed-test-data')
-public async seedTestData() {
-  return await this.userService.createMockFriendData();
-}
 }

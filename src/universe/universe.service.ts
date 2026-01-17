@@ -17,12 +17,17 @@ type StarObject = {
   z: number;
   size: number;
   color: string;
-  commit: {
+  commit?: {
     id: number;
     sha: string;
     message: string;
     date: string;
-  };
+  } | null;
+  pullRequest?: {
+    id: string;
+    title?: string | null;
+    url?: string | null;
+  } | null;
 };
 
 @Injectable()
@@ -135,7 +140,14 @@ export class UniverseService {
       z: star.z,
       size: star.size,
       color: star.color,
-      commit: star.commit,
+      commit: star.commit ?? null,
+      pullRequest: star.pullRequestId
+        ? {
+            id: star.pullRequestId.toString(),
+            title: star.pullRequestTitle,
+            url: star.pullRequestUrl,
+          }
+        : null,
     }));
 
     return {
