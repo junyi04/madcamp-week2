@@ -109,7 +109,6 @@ export class UniverseService {
         },
       },
       orderBy: { id: 'desc' },
-      take: DEFAULT_GALAXY_LIMIT,
     });
 
     const commitCount = stars.filter((star) => star.type === StarType.COMMIT)
