@@ -6,7 +6,7 @@ import * as THREE from "three";
 import { hashStringToSeed, mulberry32, randRange } from "../utils/seed";
 
 type GalaxyClusterProps = {
-  id: string;                 // repoId 또는 full_name 같은 고유값
+  id: string;
   position: [number, number, number];
   scale?: number;
   label?: string;
@@ -58,7 +58,7 @@ export default function GalaxyCluster({
       let x = Math.cos(angle) * radius;
       let z = Math.sin(angle) * radius;
 
-      // 팔 주변으로 퍼짐 (바깥쪽이 더 퍼짐)
+      // 팔 주변으로 퍼짐
       const spread = (1 - t) * 0.05 + t * 0.35;
       x += (Math.pow(r(), 3) - 0.5) * 2 * spread * radiusMax;
       z += (Math.pow(r(), 3) - 0.5) * 2 * spread * radiusMax;

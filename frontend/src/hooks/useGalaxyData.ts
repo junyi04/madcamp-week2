@@ -8,6 +8,7 @@ export const useGalaxyData = (auth: AuthState | null, apiBaseUrl: string) => {
   const [syncing, setSyncing] = useState(false)
   const [message, setMessage] = useState('')
 
+  // 레포를 폴링 방식으로 30초마다 호출
   const fetchSummary = async (withSync: boolean) => {
     if (!auth) {
       return
@@ -72,6 +73,7 @@ export const useGalaxyData = (auth: AuthState | null, apiBaseUrl: string) => {
       return
     }
 
+    // 사용자가 선택한 레포가 없을 때, 모든 레포 데이터 합쳐 보여줌
     const loadAggregateGalaxy = async () => {
       setSyncing(true)
       try {
@@ -112,6 +114,7 @@ export const useGalaxyData = (auth: AuthState | null, apiBaseUrl: string) => {
       }
     }
 
+    // 특정 레포 선택 시, 해당 레포 상세 데이터 가져옴
     const loadSingleGalaxy = async (repoId: number) => {
       const repo = summary.galaxies.find((item) => item.repoId === repoId)
       if (!repo) {
