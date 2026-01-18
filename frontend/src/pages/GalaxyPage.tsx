@@ -57,7 +57,10 @@ const GalaxyPage = () => {
 
         <section className="relative h-full min-h-[520px]">
 
-          <UniverseCanvas repos={summary?.galaxies ?? []} />
+          <UniverseCanvas
+            repos={summary?.galaxies ?? []}
+            onSelectRepo={setSelectedRepoId}
+          />
 
           <div className="relative z-10 h-full">
             <GalaxyCanvas stars={galaxy?.celestialObjects ?? []} />

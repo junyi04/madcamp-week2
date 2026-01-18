@@ -1,4 +1,6 @@
 // src/components/GalaxyCluster.tsx
+import { Html } from "@react-three/drei";
+import type { ThreeEvent } from "@react-three/fiber";
 import { useMemo } from "react";
 import * as THREE from "three";
 import { hashStringToSeed, mulberry32, randRange } from "../utils/seed";
@@ -7,14 +9,28 @@ type GalaxyClusterProps = {
   id: string;                 // repoId 또는 full_name 같은 고유값
   position: [number, number, number];
   scale?: number;
+  label?: string;
+  showLabel?: boolean;
+  onPointerOver?: (event: ThreeEvent<PointerEvent>) => void;
+  onPointerOut?: (event: ThreeEvent<PointerEvent>) => void;
+  onClick?: (event: ThreeEvent<PointerEvent>) => void;
 };
 
-export default function GalaxyCluster({ id, position, scale = 1 }: GalaxyClusterProps) {
+export default function GalaxyCluster({
+  id,
+  position,
+  scale = 1,
+  label,
+  showLabel,
+  onPointerOver,
+  onPointerOut,
+  onClick,
+}: GalaxyClusterProps) {
   const { geometry, material } = useMemo(() => {
     const seed = hashStringToSeed(id);
     const r = mulberry32(seed);
 
-    // 은하 파라미터(레포마다 달라지지만 재현됨)
+    // 은하 파라미터 (레포마다 다름)
     const count = Math.floor(randRange(r, 6000, 16000));
     const branches = Math.floor(randRange(r, 3, 6)); // 3~5
     const radiusMax = randRange(r, 2.5, 5.5);
@@ -28,8 +44,8 @@ export default function GalaxyCluster({ id, position, scale = 1 }: GalaxyCluster
     const colors = new Float32Array(count * 3);
 
     for (let i = 0; i < count; i++) {
-      // 중심이 빽빽하도록 분포(파워)
-      const t = Math.pow(r(), 1.5);         // 0~1, 0 쪽(중심) 밀집
+      // 중심이 빽빽하도록 분포
+      const t = Math.pow(r(), 1.5);
       const radius = t * radiusMax;
 
       const branch = i % branches;
@@ -42,7 +58,7 @@ export default function GalaxyCluster({ id, position, scale = 1 }: GalaxyCluster
       let x = Math.cos(angle) * radius;
       let z = Math.sin(angle) * radius;
 
-      // 팔 주변으로 퍼짐(바깥쪽이 더 퍼짐)
+      // 팔 주변으로 퍼짐 (바깥쪽이 더 퍼짐)
       const spread = (1 - t) * 0.05 + t * 0.35;
       x += (Math.pow(r(), 3) - 0.5) * 2 * spread * radiusMax;
       z += (Math.pow(r(), 3) - 0.5) * 2 * spread * radiusMax;
@@ -65,7 +81,7 @@ export default function GalaxyCluster({ id, position, scale = 1 }: GalaxyCluster
     geo.setAttribute("color", new THREE.BufferAttribute(colors, 3));
     geo.computeBoundingSphere();
 
-    // 스프라이트 알파맵(부드러운 원) 생성: 외부 이미지 없이도 빛나는 점 느낌
+    // 스프라이트 알파맵 생성: 외부 이미지 없이도 빛나는 점 느낌
     const size = 64;
     const canvas = document.createElement("canvas");
     canvas.width = size;
@@ -96,7 +112,20 @@ export default function GalaxyCluster({ id, position, scale = 1 }: GalaxyCluster
 
   return (
     <group position={position} scale={scale}>
-      <points geometry={geometry} material={material} />
+      <points
+        geometry={geometry}
+        material={material}
+        onPointerOver={onPointerOver}
+        onPointerOut={onPointerOut}
+        onClick={onClick}
+      />
+      {showLabel && label ? (
+        <Html center transform distanceFactor={10} position={[0, 0.8, 0]}>
+          <div className="pointer-events-none rounded-full bg-slate-900/80 px-2 py-1 text-[10px] text-slate-100 shadow-lg">
+            {label}
+          </div>
+        </Html>
+      ) : null}
     </group>
   );
 }
