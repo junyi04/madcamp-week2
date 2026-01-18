@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { AuthState } from '../types/universe'
 
 const authStorageKey = 'universe_auth'
@@ -19,6 +19,7 @@ export const useAuth = () => {
   const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle')
   const [message, setMessage] = useState<string>('')
   const [auth, setAuth] = useState<AuthState | null>(() => getStoredAuth())
+  const didSubmitRef = useRef(false)
 
   const apiBaseUrl = useMemo(
     () => (import.meta.env.VITE_API_BASE_URL ?? '').replace(/\/$/, ''),
@@ -43,6 +44,15 @@ export const useAuth = () => {
     if (!code) {
       return
     }
+    if (auth) {
+      const nextUrl = window.location.pathname
+      window.history.replaceState({}, '', nextUrl)
+      return
+    }
+    if (didSubmitRef.current) {
+      return
+    }
+    didSubmitRef.current = true
 
     const sendCode = async () => {
       setStatus('loading')

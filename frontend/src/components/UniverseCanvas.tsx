@@ -1,6 +1,6 @@
 import { Canvas } from "@react-three/fiber";
 import { Environment } from "@react-three/drei";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import GalaxyCluster from "./GalaxyCluster";
 import BackgroundStars from "./scene/BackgroundStars";
 import BackgroundEvents from "./scene/BackgroundEvents";
@@ -19,10 +19,25 @@ type UniverseCanvasProps = {
   onSelectRepo?: (repoId: number) => void;
 };
 
+type ClusterPhase = "enter" | "exit";
+
+type ClusterState = {
+  id: string;
+  repoId: number | string;
+  label: string;
+  position: [number, number, number];
+  scale: number;
+  phase: ClusterPhase;
+  phaseStartedAt: number;
+};
+
+const EXIT_DURATION = 1.2;  // 은하 삭제 애니메이션 지속 시간
+
 export default function UniverseCanvas({ repos, onSelectRepo }: UniverseCanvasProps) {
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [isHovered, setIsHovered] = useState(false);
   const [introDone, setIntroDone] = useState(false);
+  const [clusters, setClusters] = useState<ClusterState[]>([]);
 
   const placements = useMemo(() => {
     const RMAX = 15;        // 은하 퍼점 반경
@@ -58,6 +73,70 @@ export default function UniverseCanvas({ repos, onSelectRepo }: UniverseCanvasPr
     });
   }, [repos]);
 
+  useEffect(() => {
+    const now = performance.now() / 1000;
+    setClusters((prev) => {
+      const prevMap = new Map(prev.map((item) => [item.id, item]));
+      const next: ClusterState[] = [];
+      const placementMap = new Map(placements.map((item) => [item.id, item]));
+
+      placements.forEach((placement) => {
+        const existing = prevMap.get(placement.id);
+        if (existing) {
+          const revived = existing.phase === "exit";
+          next.push({
+            ...existing,
+            ...placement,
+            phase: revived ? "enter" : existing.phase,
+            phaseStartedAt: revived ? now : existing.phaseStartedAt,
+          });
+        } else {
+          next.push({
+            ...placement,
+            phase: "enter",
+            phaseStartedAt: now,
+          });
+        }
+      });
+
+      prev.forEach((item) => {
+        if (!placementMap.has(item.id)) {
+          if (item.phase !== "exit") {
+            next.push({ ...item, phase: "exit", phaseStartedAt: now });
+          } else {
+            next.push(item);
+          }
+        }
+      });
+
+      return next;
+    });
+  }, [placements]);
+
+  useEffect(() => {
+    if (!clusters.some((cluster) => cluster.phase === "exit")) {
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      const now = performance.now() / 1000;
+      setClusters((prev) =>
+        prev.filter(
+          (cluster) =>
+            !(cluster.phase === "exit" && now - cluster.phaseStartedAt >= EXIT_DURATION),
+        ),
+      );
+    }, EXIT_DURATION * 1000);
+
+    return () => window.clearTimeout(timer);
+  }, [clusters]);
+
+  useEffect(() => {
+    if (hoveredId && !clusters.some((cluster) => cluster.id === hoveredId)) {
+      setHoveredId(null);
+    }
+  }, [clusters, hoveredId]);
+
   const autoRotate = introDone && !isHovered;
 
   return (
@@ -76,30 +155,47 @@ export default function UniverseCanvas({ repos, onSelectRepo }: UniverseCanvasPr
       <Meteors />
 
       {/* 개별 은하 그림 */}
-      {placements.map((p) => (
-        <GalaxyCluster
-          key={p.id}
-          id={p.id}
-          position={p.position}
-          scale={p.scale}
-          label={p.label}
-          showLabel={hoveredId === p.id}
-          onPointerOver={(event) => {
-            event.stopPropagation();
-            setHoveredId(p.id);
-          }}
-          onPointerOut={(event) => {
-            event.stopPropagation();
-            setHoveredId(null);
-          }}
-          onClick={(event) => {
-            event.stopPropagation();
-            if (typeof p.repoId === "number") {
-              onSelectRepo?.(p.repoId);
+      {clusters.map((p) => {
+        const isExiting = p.phase === "exit";
+        return (
+          <GalaxyCluster
+            key={p.id}
+            id={p.id}
+            position={p.position}
+            scale={p.scale}
+            label={p.label}
+            showLabel={hoveredId === p.id && !isExiting}
+            phase={p.phase}
+            phaseStartedAt={p.phaseStartedAt}
+            onPointerOver={
+              isExiting
+                ? undefined
+                : (event) => {
+                    event.stopPropagation();
+                    setHoveredId(p.id);
+                  }
             }
-          }}
-        />
-      ))}
+            onPointerOut={
+              isExiting
+                ? undefined
+                : (event) => {
+                    event.stopPropagation();
+                    setHoveredId(null);
+                  }
+            }
+            onClick={
+              isExiting
+                ? undefined
+                : (event) => {
+                    event.stopPropagation();
+                    if (typeof p.repoId === "number") {
+                      onSelectRepo?.(p.repoId);
+                    }
+                  }
+            }
+          />
+        );
+      })}
 
       {/* 카메라 움직임 */}
       <IntroCameraRig autoRotate={autoRotate} onIntroDone={() => setIntroDone(true)} />

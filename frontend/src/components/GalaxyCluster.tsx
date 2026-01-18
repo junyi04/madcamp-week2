@@ -11,21 +11,24 @@ type GalaxyClusterProps = {
   scale?: number;
   label?: string;
   showLabel?: boolean;
+  phase: "enter" | "exit";
+  phaseStartedAt: number;
   onPointerOver?: (event: ThreeEvent<PointerEvent>) => void;
   onPointerOut?: (event: ThreeEvent<PointerEvent>) => void;
   onClick?: (event: ThreeEvent<PointerEvent>) => void;
 };
 
-export default function GalaxyCluster({
-  id,
-  position,
-  scale = 1,
-  label,
-  showLabel,
-  onPointerOver,
-  onPointerOut,
-  onClick,
-}: GalaxyClusterProps) {
+export default function GalaxyCluster(props: GalaxyClusterProps) {
+  const {
+    id,
+    position,
+    scale = 1,
+    label,
+    showLabel,
+    onPointerOver,
+    onPointerOut,
+    onClick,
+  } = props;
   const { geometry, material } = useMemo(() => {
     const seed = hashStringToSeed(id);
     const r = mulberry32(seed);

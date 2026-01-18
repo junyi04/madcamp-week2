@@ -61,7 +61,7 @@ export const useGalaxyData = (auth: AuthState | null, apiBaseUrl: string) => {
 
     const intervalId = window.setInterval(() => {
       void fetchSummary(false)
-    }, 30000)
+    }, 180000)
 
     return () => {
       window.clearInterval(intervalId)
