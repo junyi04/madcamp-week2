@@ -17,18 +17,23 @@ type UniverseCanvasProps = {
 export default function UniverseCanvas({ repos }: UniverseCanvasProps) {
   // 레포마다 “우주에 모여있는” 위치를 결정론적으로 배치
   const placements = useMemo(() => {
-    const RMAX = 14;      // 은하들이 모여있는 반경
-    const YSPREAD = 3.0;  // 위아래 퍼짐
+    const RMAX = 15;      // 은하들이 모여있는 반경
+    const YSPREAD = 10.0;  // 위아래 퍼짐
 
-    return repos.map((repo) => {
+    const count = Math.max(repos.length, 1);
+    const goldenAngle = Math.PI * (3 - Math.sqrt(5));
+
+    return repos.map((repo, index) => {
       const repoId = String(repo.repoId);
       const seed = hashStringToSeed(repoId);
       const r = mulberry32(seed);
 
-      // 중심에 더 많게: r = sqrt(u)*RMAX
-      const u = r();
-      const radius = Math.sqrt(u) * RMAX;
-      const theta = r() * Math.PI * 2;
+      // 중심에 더 많게
+      const t = (index + 0.5) / count;
+      const baseRadius = Math.sqrt(t) * RMAX;
+      const radiusJitter = randRange(r, -0.15, 0.15) * RMAX * (1 - t);
+      const theta = index * goldenAngle + randRange(r, -0.25, 0.25);
+      const radius = Math.max(0, baseRadius + radiusJitter);
 
       const x = Math.cos(theta) * radius;
       const z = Math.sin(theta) * radius;
@@ -59,8 +64,14 @@ export default function UniverseCanvas({ repos }: UniverseCanvasProps) {
         <GalaxyCluster key={p.id} id={p.id} position={p.position} scale={p.scale} />
       ))}
 
-      {/* 카메라 컨트롤 (원하면 끄거나 제한 걸어도 됨) */}
-      <OrbitControls enableDamping dampingFactor={0.08} />
+      {/* 카메라 컨트롤 */}
+      <OrbitControls
+        enableDamping
+        dampingFactor={0.08}
+        minDistance={4}
+        maxDistance={40}
+        zoomSpeed={0.9}
+      />
     </Canvas>
   );
 }
