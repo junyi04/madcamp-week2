@@ -35,9 +35,6 @@ export const useGalaxyData = (auth: AuthState | null, apiBaseUrl: string) => {
         }
         const data = (await response.json()) as SummaryResponse
         setSummary(data)
-        if (!selectedRepoId && data.galaxies.length) {
-          setSelectedRepoId(data.galaxies[0].repoId)
-        }
       } catch (error) {
         setMessage(error instanceof Error ? error.message : 'Summary fetch failed.')
       } finally {
@@ -49,16 +46,56 @@ export const useGalaxyData = (auth: AuthState | null, apiBaseUrl: string) => {
   }, [apiBaseUrl, auth])
 
   useEffect(() => {
-    if (!auth || !summary || !selectedRepoId) {
+    if (!auth || !summary) {
       return
     }
 
-    const repo = summary.galaxies.find((item) => item.repoId === selectedRepoId)
-    if (!repo) {
-      return
+    const loadAggregateGalaxy = async () => {
+      setSyncing(true)
+      try {
+        const responses = await Promise.all(
+          summary.galaxies.map((repo) =>
+            fetch(`${apiBaseUrl}/universe/me/galaxies/${repo.repoId}?types=commit,pr`, {
+              headers: { Authorization: `Bearer ${auth.appToken}` },
+            }),
+          ),
+        )
+        const failed = responses.find((res) => !res.ok)
+        if (failed) {
+          throw new Error('Failed to load galaxies.')
+        }
+        const galaxies = (await Promise.all(
+          responses.map((res) => res.json()),
+        )) as GalaxyResponse[]
+
+        const merged = galaxies.flatMap((entry) => entry.celestialObjects)
+        const counts = galaxies.reduce(
+          (acc, entry) => ({
+            commits: acc.commits + entry.counts.commits,
+            prs: acc.prs + entry.counts.prs,
+          }),
+          { commits: 0, prs: 0 },
+        )
+
+        setGalaxy({
+          repoId: 0,
+          name: 'All Repos',
+          celestialObjects: merged,
+          counts,
+        })
+      } catch (error) {
+        setMessage(error instanceof Error ? error.message : 'Galaxy fetch failed.')
+      } finally {
+        setSyncing(false)
+      }
     }
 
-    const loadGalaxy = async () => {
+    const loadSingleGalaxy = async (repoId: number) => {
+      const repo = summary.galaxies.find((item) => item.repoId === repoId)
+      if (!repo) {
+        return
+      }
+
       setSyncing(true)
       try {
         await fetch(
@@ -100,7 +137,11 @@ export const useGalaxyData = (auth: AuthState | null, apiBaseUrl: string) => {
       }
     }
 
-    void loadGalaxy()
+    if (!selectedRepoId) {
+      void loadAggregateGalaxy()
+    } else {
+      void loadSingleGalaxy(selectedRepoId)
+    }
   }, [apiBaseUrl, auth, summary, selectedRepoId])
 
   return {
