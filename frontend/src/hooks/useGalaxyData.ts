@@ -8,15 +8,12 @@ export const useGalaxyData = (auth: AuthState | null, apiBaseUrl: string) => {
   const [syncing, setSyncing] = useState(false)
   const [message, setMessage] = useState('')
 
-  useEffect(() => {
+  const fetchSummary = async (withSync: boolean) => {
     if (!auth) {
-      setSummary(null)
-      setGalaxy(null)
-      setSelectedRepoId(null)
       return
     }
 
-    const bootstrap = async () => {
+    if (withSync) {
       setSyncing(true)
       try {
         await fetch(
@@ -25,24 +22,49 @@ export const useGalaxyData = (auth: AuthState | null, apiBaseUrl: string) => {
       } catch {
         // Ignore sync failures and still attempt to fetch summary.
       }
+    }
 
-      try {
-        const response = await fetch(`${apiBaseUrl}/universe/me/summary`, {
-          headers: { Authorization: `Bearer ${auth.appToken}` },
-        })
-        if (!response.ok) {
-          throw new Error('Failed to load summary.')
-        }
-        const data = (await response.json()) as SummaryResponse
-        setSummary(data)
-      } catch (error) {
-        setMessage(error instanceof Error ? error.message : 'Summary fetch failed.')
-      } finally {
+    try {
+      const response = await fetch(`${apiBaseUrl}/universe/me/summary`, {
+        headers: { Authorization: `Bearer ${auth.appToken}` },
+      })
+      if (!response.ok) {
+        throw new Error('Failed to load summary.')
+      }
+      const data = (await response.json()) as SummaryResponse
+      setSummary(data)
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Summary fetch failed.')
+    } finally {
+      if (withSync) {
         setSyncing(false)
       }
     }
+  }
 
-    void bootstrap()
+  useEffect(() => {
+    if (!auth) {
+      setSummary(null)
+      setGalaxy(null)
+      setSelectedRepoId(null)
+      return
+    }
+
+    void fetchSummary(true)
+  }, [apiBaseUrl, auth])
+
+  useEffect(() => {
+    if (!auth) {
+      return
+    }
+
+    const intervalId = window.setInterval(() => {
+      void fetchSummary(false)
+    }, 30000)
+
+    return () => {
+      window.clearInterval(intervalId)
+    }
   }, [apiBaseUrl, auth])
 
   useEffect(() => {
