@@ -1,7 +1,7 @@
-export const NUM_STARS = 7000
-export const NUM_ARMS = 4
+export const NUM_STARS = 2000
+export const NUM_ARMS = 3
 
-export const GALAXY_THICKNESS = 5
+export const GALAXY_THICKNESS = 10
 
 export const CORE_X_DIST = 33
 export const CORE_Y_DIST = 33
@@ -17,4 +17,4 @@ export const ARM_Y_MEAN = 100
 export const SPIRAL = 3.0
 export const ARMS = 2.0
 
-export const HAZE_RATIO = 0.4
+export const HAZE_RATIO = 0.3

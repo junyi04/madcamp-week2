@@ -1,6 +1,7 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, type MutableRefObject } from 'react'
 import * as THREE from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
+import type { CameraPose } from './repo-galaxy/RepoGalaxy'
 
 import rightImg from './assets/skybox_right.png'
 import leftImg from './assets/skybox_left.png'
@@ -9,7 +10,11 @@ import downImg from './assets/skybox_down.png'
 import frontImg from './assets/skybox_front.png'
 import backImg from './assets/skybox_back.png'
 
-export default function Skybox() {
+type SkyboxProps = {
+  cameraPoseRef?: MutableRefObject<CameraPose | null>
+}
+
+export default function Skybox({ cameraPoseRef }: SkyboxProps) {
   const containerRef = useRef<HTMLDivElement | null>(null)
 
   useEffect(() => {
@@ -28,12 +33,15 @@ export default function Skybox() {
 
     const camera = new THREE.PerspectiveCamera(60, width / height, 0.1, 1000)
     camera.position.set(0, 0, 5)
+    camera.up.set(0, 0, 1)
 
     const controls = new OrbitControls(camera, renderer.domElement)
     controls.enablePan = false
     controls.enableZoom = true
     controls.minDistance = 1.5
     controls.maxDistance = 50
+    const followExternal = Boolean(cameraPoseRef)
+    controls.enabled = !followExternal
 
     // load cube texture from imported assets (posX, negX, posY, negY, posZ, negZ)
     const urls = [rightImg, leftImg, upImg, downImg, frontImg, backImg]
@@ -54,7 +62,19 @@ export default function Skybox() {
     window.addEventListener('resize', onResize)
 
     const animate = () => {
-      controls.update()
+      if (cameraPoseRef?.current) {
+        const pose = cameraPoseRef.current
+        camera.position.set(pose.position.x, pose.position.y, pose.position.z)
+        camera.quaternion.set(
+          pose.quaternion.x,
+          pose.quaternion.y,
+          pose.quaternion.z,
+          pose.quaternion.w,
+        )
+        camera.updateMatrixWorld()
+      } else {
+        controls.update()
+      }
       renderer.render(scene, camera)
       raf = requestAnimationFrame(animate)
     }
@@ -70,7 +90,7 @@ export default function Skybox() {
       } catch { }
       if (container.contains(renderer.domElement)) container.removeChild(renderer.domElement)
     }
-  }, [])
+  }, [cameraPoseRef])
 
   return <div ref={containerRef} style={{ width: '100vw', height: '100vh', display: 'block' }} />
 }

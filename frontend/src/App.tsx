@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import Skybox from './Skybox'
-import RepoGalaxy from './repo-galaxy/RepoGalaxy'
+import RepoGalaxy, { type CameraPose } from './repo-galaxy/RepoGalaxy'
 import './App.css'
 
 function App() {
@@ -13,6 +13,7 @@ function App() {
   )
   const githubClientId = import.meta.env.VITE_GITHUB_CLIENT_ID as string | undefined
   const redirectUri = import.meta.env.VITE_GITHUB_REDIRECT_URI as string | undefined
+  const galaxyCameraPoseRef = useRef<CameraPose | null>(null)
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
@@ -67,33 +68,22 @@ function App() {
   }
 
   const [showSkybox, setShowSkybox] = useState(false)
-  const [showRepoGalaxy, setShowRepoGalaxy] = useState(false)
 
   if (showSkybox) {
     return (
       <div className="relative h-screen w-screen bg-black">
-        <Skybox />
+        <div className="absolute inset-0 pointer-events-none">
+          <Skybox cameraPoseRef={galaxyCameraPoseRef} />
+        </div>
+        <div className="absolute inset-0">
+          <RepoGalaxy cameraPoseRef={galaxyCameraPoseRef} />
+        </div>
         <button
           onClick={() => setShowSkybox(false)}
           style={{ position: 'absolute', left: 16, top: 16, zIndex: 60 }}
           className="rounded px-3 py-2 bg-white/10 text-white"
         >
           Close Skybox
-        </button>
-      </div>
-    )
-  }
-
-  if (showRepoGalaxy) {
-    return (
-      <div className="relative h-screen w-screen bg-black">
-        <RepoGalaxy />
-        <button
-          onClick={() => setShowRepoGalaxy(false)}
-          style={{ position: 'absolute', left: 16, top: 16, zIndex: 60 }}
-          className="rounded px-3 py-2 bg-white/10 text-white"
-        >
-          Close Repo Galaxy
         </button>
       </div>
     )
@@ -115,10 +105,10 @@ function App() {
         </button>
         <button
           type="button"
-          onClick={() => setShowRepoGalaxy(true)}
+          onClick={() => setShowSkybox(true)}
           className="mt-4 w-full rounded-xl border border-white/10 bg-white/10 px-6 py-3 text-sm font-semibold text-white transition hover:bg-white/20"
         >
-          Open Repo Galaxy (temp)
+          Open Galaxy (temp)
         </button>
         <div className="mt-4 text-xs text-slate-400">
           Status: {status}

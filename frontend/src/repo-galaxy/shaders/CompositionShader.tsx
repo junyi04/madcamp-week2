@@ -16,8 +16,14 @@ export class CompositionShader {
 
         void main() {
 
+            vec4 base = texture2D( baseTexture, vUv );
+            vec4 bloom = vec4( 0.9 ) * texture2D( bloomTexture, vUv );
+            vec3 color = base.rgb + bloom.rgb;
+            float bloomAlpha = max( max( bloom.r, bloom.g ), bloom.b );
+            float alpha = clamp( max( base.a, bloomAlpha ), 0.0, 1.0 );
+
             // Baselayer + bloomlayer + 0.2(overlay)
-            gl_FragColor = ( texture2D( baseTexture, vUv ) + vec4( 0.9 ) * texture2D( bloomTexture, vUv ) );
+            gl_FragColor = vec4( color, alpha );
 
         }
 `
