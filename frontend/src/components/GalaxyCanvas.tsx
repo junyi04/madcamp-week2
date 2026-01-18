@@ -53,9 +53,10 @@ const buildInstancedStars = (count: number) => {
 
 type GalaxyCanvasProps = {
   stars: CelestialObject[]
+  tintColor?: string | null
 }
 
-const GalaxyCanvas = ({ stars }: GalaxyCanvasProps) => {
+const GalaxyCanvas = ({ stars, tintColor }: GalaxyCanvasProps) => {
   const containerRef = useRef<HTMLDivElement>(null)
   const sceneRef = useRef<THREE.Scene | null>(null)
   const meshRef = useRef<THREE.InstancedMesh | null>(null)
@@ -194,7 +195,8 @@ const GalaxyCanvas = ({ stars }: GalaxyCanvasProps) => {
       dummy.scale.setScalar(sizeScale)
       dummy.updateMatrix()
       mesh.setMatrixAt(index, dummy.matrix)
-      color.set(star.color || '#ffffff')
+      const resolvedColor = tintColor ?? star.color ?? '#ffffff'
+      color.set(resolvedColor)
       mesh.instanceColor?.setXYZ(index, color.r, color.g, color.b)
     })
 
