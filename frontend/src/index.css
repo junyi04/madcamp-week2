@@ -14,3 +14,12 @@ body {
   margin: 0;
   min-width: 320px;
 }
+
+.scrollbar-hidden {
+  scrollbar-width: none;
+}
+
+.scrollbar-hidden::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+}

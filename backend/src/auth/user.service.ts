@@ -79,6 +79,9 @@ type GithubPullRequestResponse = {
 
 @Injectable()
 export default class UserService {
+  private readonly githubCache = new Map<string, { data: unknown; expiresAt: number }>();
+  private readonly githubCooldownUntil = new Map<string, number>();
+
   constructor(
     private configService: ConfigService,
     private prisma: PrismaService,
@@ -240,7 +243,9 @@ export default class UserService {
   }
 
   // 나선형 : 최신 레포는 바깥쪽, 오래된 레포는 안쪽에 위치
-  private buildGalaxyCoords(repos: Array<{ id: number; created_at: string }>) {
+  private buildGalaxyCoords(
+    repos: Array<{ id: number; created_at: string }>,
+  ) {
     const coords = new Map<number, {
       galaxyX: number;
       galaxyY: number;
@@ -572,6 +577,7 @@ export default class UserService {
     return { x, y, z };
   }
 
+
   // 날짜 배열 최소, 최대 계산
   private getDateRange(dates: Date[]) {
     if (!dates.length) {
@@ -600,25 +606,46 @@ export default class UserService {
     return hash;
   }
 
+
   // Github API 호출 함수 (rate limit, 권한, 미존재 예외 처리)
   private async githubGet<T>(url: string, accessToken: string): Promise<AxiosResponse<T>> {
+    const now = Date.now();
+    const cooldownUntil = this.githubCooldownUntil.get(accessToken);
+    if (cooldownUntil && now < cooldownUntil) {
+      throw new HttpException("GitHub rate limit exceeded.", 429);
+    }
+
+    const cacheKey = `${accessToken}:${url}`;
+    const cached = this.githubCache.get(cacheKey);
+    if (cached && cached.expiresAt > now) {
+      return { data: cached.data as T } as AxiosResponse<T>;
+    }
+
     try {
-      return await axios.get<T>(url, {
+      const response = await axios.get<T>(url, {
         headers: { Authorization: `token ${accessToken}` },
       });
+      const ttl = url.includes("/user/repos") ? 60_000 : url.includes("/user") ? 30_000 : 0;
+      if (ttl > 0) {
+        this.githubCache.set(cacheKey, { data: response.data, expiresAt: now + ttl });
+      }
+      return response;
     } catch (error) {
       if (!axios.isAxiosError(error)) {
         throw error;
       }
       const status = error.response?.status;
       const remaining = error.response?.headers?.["x-ratelimit-remaining"];
+      const reset = error.response?.headers?.["x-ratelimit-reset"];
 
       if (status === 401) {
         throw new UnauthorizedException("GitHub token is invalid.");
       }
 
-      if (status === 403) {
+      if (status === 403 || status === 429) {
         if (remaining === "0") {
+          const resetAt = reset ? Number(reset) * 1000 : now + 60_000;
+          this.githubCooldownUntil.set(accessToken, resetAt);
           throw new HttpException("GitHub rate limit exceeded.", 429);
         }
         throw new ForbiddenException("GitHub access denied. Check scopes.");
