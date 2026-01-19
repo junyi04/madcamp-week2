@@ -86,7 +86,7 @@ const GalaxyPage = () => {
               <UniverseCanvas
                 repos={summary?.galaxies ?? []}
                 selectedRepoId={selectedRepoId}
-                onSelectRepo={setSelectedRepoId}
+                onSelectRepo={() => {}}
               />
 
               <div className="relative z-10 h-full">
