@@ -148,7 +148,7 @@ const GalaxyPage = () => {
             } ${showRepoLayer ? 'pointer-events-auto' : 'pointer-events-none'}`}
           >
             <div className="relative z-10 h-full">
-              <RepoGalaxy />
+              <RepoGalaxy active={showRepoLayer} />
             </div>
           </div>
 
