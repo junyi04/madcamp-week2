@@ -1,5 +1,5 @@
 // src/components/GalaxyCluster.tsx
-import { Html } from "@react-three/drei";
+import { Billboard, Html } from "@react-three/drei";
 import type { ThreeEvent } from "@react-three/fiber";
 import { useMemo } from "react";
 import * as THREE from "three";
@@ -8,6 +8,7 @@ import { hashStringToSeed, mulberry32, randRange } from "../utils/seed";
 type GalaxyClusterProps = {
   id: string;
   position: [number, number, number];
+  commitCount: number;
   scale?: number;
   label?: string;
   showLabel?: boolean;
@@ -23,6 +24,7 @@ export default function GalaxyCluster(props: GalaxyClusterProps) {
   const {
     id,
     position,
+    commitCount,
     scale = 1,
     label,
     showLabel,
@@ -36,11 +38,11 @@ export default function GalaxyCluster(props: GalaxyClusterProps) {
     const r = mulberry32(seed);
 
     // 은하 파라미터 (레포마다 다름)
-    const count = Math.floor(randRange(r, 6000, 16000));
-    const branches = Math.floor(randRange(r, 3, 6)); // 3~5
-    const radiusMax = randRange(r, 2.5, 5.5);
-    const spin = randRange(r, 1.0, 4.0);
-    const thickness = randRange(r, 0.15, 0.6);
+    const count = commitCount * 100 + 100; // 커밋 수에 비례하는 별 개수
+    const branches = Math.floor(randRange(r, 3, 6)); // 2~5
+    const radiusMax = Math.log10(commitCount + 1) + 1.0;
+    const spin = Math.log10(commitCount + 1) + 0.3;
+    const thickness = randRange(r, 0.15, 0.3);
 
     const insideColor = new THREE.Color().setHSL(randRange(r, 0.02, 0.12), 0.9, 0.65);
     const outsideColor = new THREE.Color().setHSL(randRange(r, 0.55, 0.75), 0.9, 0.45);
@@ -133,18 +135,19 @@ export default function GalaxyCluster(props: GalaxyClusterProps) {
         </mesh>
       ) : null}
       {showLabel && label ? (
-        <Html
-          center
-          transform
-          distanceFactor={10}
-          position={[0, 0.8, 0]}
-          occlude={false}
-          zIndexRange={[200, 0]}
-        >
-          <div className="pointer-events-none rounded-full bg-slate-900/80 px-2 py-1 text-[10px] text-slate-100 shadow-lg">
-            {label}
-          </div>
-        </Html>
+        <Billboard position={[0, 0.8, 0]}>
+          <Html
+            center
+            transform
+            distanceFactor={10}
+            occlude={false}
+            zIndexRange={[200, 0]}
+          >
+            <div className="pointer-events-none rounded-full bg-slate-900/80 px-2 py-1 text-[10px] text-slate-100 shadow-lg">
+              {label}
+            </div>
+          </Html>
+        </Billboard>
       ) : null}
     </group>
   );

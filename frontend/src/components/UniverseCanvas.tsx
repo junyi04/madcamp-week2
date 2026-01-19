@@ -12,6 +12,7 @@ import { hashStringToSeed, mulberry32, randRange } from "../utils/seed";
 type RepoLike = {
   repoId: number | string;
   name?: string;
+  commitCount: number;
 };
 
 type UniverseCanvasProps = {
@@ -25,6 +26,7 @@ type ClusterPhase = "enter" | "exit";
 type ClusterState = {
   id: string;
   repoId: number | string;
+  commitCount: number;
   label: string;
   position: [number, number, number];
   scale: number;
@@ -73,6 +75,7 @@ export default function UniverseCanvas({
       return {
         id: repoId,
         repoId: repo.repoId,
+        commitCount: repo.commitCount,
         label: repo.name ?? repoId,
         position: [x, y, z] as [number, number, number],
         scale,
@@ -198,8 +201,9 @@ export default function UniverseCanvas({
             id={p.id}
             position={p.position}
             scale={p.scale}
+            commitCount={p.commitCount}
             label={p.label}
-            showLabel={hoveredId === p.id && !isExiting}
+            showLabel={!isExiting}
             hitRadius={isFocused ? 5.5 * p.scale : 0}
             phase={p.phase}
             phaseStartedAt={p.phaseStartedAt}
