@@ -51,6 +51,7 @@ type GithubRepoResponse = {
   name: string;
   updated_at: string;
   created_at: string;
+  owner: { login: string };
   archived: boolean;
   disabled: boolean;
 };
@@ -205,6 +206,7 @@ export default class UserService {
           galaxyZ: coords.galaxyZ,
           galaxySize: coords.galaxySize,
           createdAt: new Date(repo.created_at),
+          ownerName: repo.owner.login,
         },
         create: {
           repoId: BigInt(repo.id),
@@ -216,6 +218,7 @@ export default class UserService {
           galaxyZ: coords.galaxyZ,
           galaxySize: coords.galaxySize,
           createdAt: new Date(repo.created_at),
+          ownerName: repo.owner.login,
         },
       });
     }
@@ -281,66 +284,55 @@ export default class UserService {
   // 최신 커밋 30개 가져오고 Star 생성
   public async getCommitsForUser(
     userId: number,
-    owner: string,
-    repo: string,
+    repoId: number,
     forceSync = false,
   ): Promise<IcommitStar[]> {
-    const { accessToken } = await this.getGithubAuthForUser(userId);
-    if (!forceSync) {
-      const cachedOwner = await this.prisma.githubUser.findUnique({
-        where: { githubId: owner },
-      });
-      if (cachedOwner) {
-        const cachedRepo = await this.prisma.repository.findFirst({
-          where: {
-            name: repo,
-            userId: cachedOwner.id,
-          },
-        });
-        if (cachedRepo?.lastSyncedAt) {
-          const cachedCommits = await this.prisma.commit.findMany({
-            where: { repoId: cachedRepo.id },
-            orderBy: { date: "desc" },
-            take: 30,
-          });
-          return cachedCommits.map((item) => ({
-            sha: item.sha,
-            message: item.message,
-            date: item.date,
-          }));
-        }
-      }
-    }
-
+    const { accessToken, githubUserId } = await this.getGithubAuthForUser(userId);
     const repository = await this.prisma.repository.findFirst({
       where: {
-        name: repo,
-        userId: userId,
+        id: repoId,
+        userId: githubUserId,
       },
-      select: { repoId: true , id:true, galaxyX: true, galaxyY: true, galaxyZ: true },
-    })
-
-    if (repository === null){
-      throw new NotFoundException("Repository not found.");
-    }
-
-    if (!repository?.repoId) {
-      throw new NotFoundException("Repository not found.");
-    }
-
-    const ownerUser = await this.prisma.githubUser.findUnique({
-      where: { githubId: owner },
+      select: {
+        id: true,
+        name: true,
+        ownerName: true,
+        repoId: true,
+        lastSyncedAt: true,
+        galaxyX: true,
+        galaxyY: true,
+        galaxyZ: true,
+      },
     });
 
-    if (!ownerUser) {
-      throw new UnauthorizedException("Owner is not registered.");
+    if (!repository) {
+      throw new NotFoundException("Repository not found.");
     }
 
-    const url = `https://api.github.com/repos/${owner}/${repo}/commits?per_page=30`;
+    if (!forceSync && repository.lastSyncedAt) {
+      const cachedCommits = await this.prisma.commit.findMany({
+        where: { repoId: repository.id },
+        orderBy: { date: "desc" },
+        take: 30,
+      });
+      return cachedCommits.map((item) => ({
+        sha: item.sha,
+        message: item.message,
+        date: item.date,
+      }));
+    }
+
+    const url = `https://api.github.com/repos/${repository.ownerName}/${repository.name}/commits?per_page=30`;
 
     const { data } = await this.githubGet<GithubCommitResponse[]>(url, accessToken);
 
     if (!Array.isArray(data) || data.length === 0) {
+      await this.syncPullRequestStars(
+        accessToken,
+        repository.ownerName,
+        repository.name,
+        repository,
+      );
       await this.prisma.repository.update({
         where: { id: repository.id },
         data: { lastSyncedAt: new Date() },
@@ -380,7 +372,12 @@ export default class UserService {
       );
     }
 
-    await this.syncPullRequestStars(accessToken, owner, repo, repository);
+    await this.syncPullRequestStars(
+      accessToken,
+      repository.ownerName,
+      repository.name,
+      repository,
+    );
 
     await this.prisma.repository.update({
       where: { id: repository.id },
