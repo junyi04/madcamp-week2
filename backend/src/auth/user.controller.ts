@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Post, Query, Req, UnauthorizedException, UseGuards } from "@nestjs/common";
+import { BadRequestException, Body, Controller, Get, Post, Query, Req, UnauthorizedException, UseGuards } from "@nestjs/common";
 import UserService from "./user.service";
 import { GithubCodeDto } from "./dto/user.dto";
 import { AuthGuard } from "@nestjs/passport";
@@ -48,26 +48,33 @@ export default class UserController {
   @UseGuards(AuthGuard('jwt'))
   public async getCommits(
     @Req() req: { user?: { userId?: number } },
-    @Query('owner') owner: string,
-    @Query('repo') repo: string,
+    @Query('repoId') repoIdParam: string,
   ) {
     if (!req.user?.userId) {
       throw new UnauthorizedException('Missing user id.');
     }
-    return await this.userService.getCommitsForUser(req.user.userId, owner, repo);
+    const repoId = Number(repoIdParam);
+    if (Number.isNaN(repoId)) {
+      throw new BadRequestException('Invalid repo id.');
+    }
+
+    return await this.userService.getCommitsForUser(req.user.userId, repoId);
   }
 
   @Post('/commits/sync')
   @UseGuards(AuthGuard('jwt'))
   public async syncCommits(
     @Req() req: { user?: { userId?: number } },
-    @Query('owner') owner: string,
-    @Query('repo') repo: string,
+    @Query('repoId') repoIdParam: string,
   ) {
     if (!req.user?.userId) {
       throw new UnauthorizedException('Missing user id.');
     }
-    await this.userService.getCommitsForUser(req.user.userId, owner, repo, true);
+    const repoId = Number(repoIdParam);
+    if (Number.isNaN(repoId)) {
+      throw new BadRequestException('Invalid repo id.');
+    }
+    await this.userService.getCommitsForUser(req.user.userId, repoId, true);
     return {
       stats: 202,
       message: 'Sync started',

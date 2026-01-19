@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { AuthState, GalaxyResponse, SummaryResponse } from '../types/universe'
 
 export const useGalaxyData = (auth: AuthState | null, apiBaseUrl: string) => {
@@ -7,6 +7,7 @@ export const useGalaxyData = (auth: AuthState | null, apiBaseUrl: string) => {
   const [galaxy, setGalaxy] = useState<GalaxyResponse | null>(null)
   const [syncing, setSyncing] = useState(false)
   const [message, setMessage] = useState('')
+  const lastSyncedRepoRef = useRef<number | null>(null)
 
   // 레포를 폴링 방식으로 30초마다 호출
   const fetchSummary = async (withSync: boolean) => {
@@ -48,6 +49,7 @@ export const useGalaxyData = (auth: AuthState | null, apiBaseUrl: string) => {
       setSummary(null)
       setGalaxy(null)
       setSelectedRepoId(null)
+      lastSyncedRepoRef.current = null
       return
     }
 
@@ -73,7 +75,8 @@ export const useGalaxyData = (auth: AuthState | null, apiBaseUrl: string) => {
       return
     }
 
-    // 사용자가 선택한 레포가 없을 때, 모든 레포 데이터 합쳐 보여줌
+    let cancelled = false
+
     const loadAggregateGalaxy = async () => {
       setSyncing(true)
       try {
@@ -84,6 +87,9 @@ export const useGalaxyData = (auth: AuthState | null, apiBaseUrl: string) => {
             }),
           ),
         )
+        if (cancelled) {
+          return
+        }
         const failed = responses.find((res) => !res.ok)
         if (failed) {
           throw new Error('Failed to load galaxies.')
@@ -91,6 +97,9 @@ export const useGalaxyData = (auth: AuthState | null, apiBaseUrl: string) => {
         const galaxies = (await Promise.all(
           responses.map((res) => res.json()),
         )) as GalaxyResponse[]
+        if (cancelled) {
+          return
+        }
 
         const merged = galaxies.flatMap((entry) => entry.celestialObjects)
         const counts = galaxies.reduce(
@@ -108,13 +117,16 @@ export const useGalaxyData = (auth: AuthState | null, apiBaseUrl: string) => {
           counts,
         })
       } catch (error) {
-        setMessage(error instanceof Error ? error.message : 'Galaxy fetch failed.')
+        if (!cancelled) {
+          setMessage(error instanceof Error ? error.message : 'Galaxy fetch failed.')
+        }
       } finally {
-        setSyncing(false)
+        if (!cancelled) {
+          setSyncing(false)
+        }
       }
     }
 
-    // 특정 레포 선택 시, 해당 레포 상세 데이터 가져옴
     const loadSingleGalaxy = async (repoId: number) => {
       const repo = summary.galaxies.find((item) => item.repoId === repoId)
       if (!repo) {
@@ -122,17 +134,28 @@ export const useGalaxyData = (auth: AuthState | null, apiBaseUrl: string) => {
       }
 
       setSyncing(true)
-      void fetch(
-        `${apiBaseUrl}/oauth/commits/sync?owner=${encodeURIComponent(
-          auth.githubId,
-        )}&repo=${encodeURIComponent(repo.name)}`,
-        {
-          method: 'POST',
-          headers: { Authorization: `Bearer ${auth.appToken}` },
-        },
-      ).catch(() => {
-        // Commit sync is optional for UI; proceed to load cached stars.
-      })
+      if (lastSyncedRepoRef.current !== repoId) {
+        lastSyncedRepoRef.current = repoId
+        try {
+          const syncResponse = await fetch(
+            `${apiBaseUrl}/oauth/commits/sync?repoId=${encodeURIComponent(repo.repoId)}`,
+            {
+              method: 'POST',
+              headers: { Authorization: `Bearer ${auth.appToken}` },
+            },
+          )
+          if (!syncResponse.ok) {
+            throw new Error('Failed to sync commits.')
+          }
+        } catch (error) {
+          if (!cancelled) {
+            setMessage(error instanceof Error ? error.message : 'Commit sync failed.')
+          }
+        }
+        if (cancelled) {
+          return
+        }
+      }
 
       try {
         const response = await fetch(
@@ -141,13 +164,23 @@ export const useGalaxyData = (auth: AuthState | null, apiBaseUrl: string) => {
             headers: { Authorization: `Bearer ${auth.appToken}` },
           },
         )
+        if (cancelled) {
+          return
+        }
         if (!response.ok) {
           throw new Error('Failed to load galaxy.')
         }
         const data = (await response.json()) as GalaxyResponse
+        if (cancelled) {
+          return
+        }
         setGalaxy(data)
         setSummary((prev) => {
           if (!prev) {
+            return prev
+          }
+          const current = prev.galaxies.find((item) => item.repoId === data.repoId)
+          if (current?.commitCount === data.counts.commits) {
             return prev
           }
           const updated = prev.galaxies.map((item) =>
@@ -158,9 +191,13 @@ export const useGalaxyData = (auth: AuthState | null, apiBaseUrl: string) => {
           return { ...prev, galaxies: updated }
         })
       } catch (error) {
-        setMessage(error instanceof Error ? error.message : 'Galaxy fetch failed.')
+        if (!cancelled) {
+          setMessage(error instanceof Error ? error.message : 'Galaxy fetch failed.')
+        }
       } finally {
-        setSyncing(false)
+        if (!cancelled) {
+          setSyncing(false)
+        }
       }
     }
 
@@ -169,7 +206,11 @@ export const useGalaxyData = (auth: AuthState | null, apiBaseUrl: string) => {
     } else {
       void loadSingleGalaxy(selectedRepoId)
     }
-  }, [apiBaseUrl, auth, selectedRepoId])
+
+    return () => {
+      cancelled = true
+    }
+  }, [apiBaseUrl, auth, summary, selectedRepoId])
 
   return {
     summary,
