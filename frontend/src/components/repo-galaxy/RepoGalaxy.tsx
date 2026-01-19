@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type MutableRefObject } from 'react'
+import { useEffect, useRef, useState, type CSSProperties, type MutableRefObject } from 'react'
 import * as THREE from 'three'
 
 import { CompositionShader } from '../../shaders/CompositionShader'
@@ -11,7 +11,32 @@ import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js'
 import { Galaxy } from './objects/galaxy'
 import { FeatureStar } from './objects/featureStar'
 
-import './RepoGalaxy.css'
+const rootStyle: CSSProperties = {
+  width: '100vw',
+  height: '100vh',
+  margin: 0,
+  position: 'relative',
+}
+
+const canvasStyle: CSSProperties = {
+  width: '100%',
+  height: '100%',
+  display: 'block',
+}
+
+const labelStyle: CSSProperties = {
+  position: 'absolute',
+  pointerEvents: 'none',
+  zIndex: 2,
+  padding: '4px 8px',
+  borderRadius: 999,
+  background: 'rgba(10, 12, 18, 0.85)',
+  color: '#f4f6fb',
+  fontSize: 12,
+  letterSpacing: '0.02em',
+  border: '1px solid rgba(255, 255, 255, 0.2)',
+  boxShadow: '0 10px 25px rgba(0, 0, 0, 0.35)',
+}
 
 export type CameraPose = {
   position: { x: number; y: number; z: number }
@@ -28,6 +53,25 @@ export default function RepoGalaxy({ cameraPoseRef }: RepoGalaxyProps) {
   )
   const containerRef = useRef<HTMLDivElement | null>(null)
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
+
+  useEffect(() => {
+    const html = document.documentElement
+    const body = document.body
+    const prevHtml = { margin: html.style.margin, height: html.style.height }
+    const prevBody = { margin: body.style.margin, height: body.style.height }
+
+    html.style.margin = '0'
+    html.style.height = '100%'
+    body.style.margin = '0'
+    body.style.height = '100%'
+
+    return () => {
+      html.style.margin = prevHtml.margin
+      html.style.height = prevHtml.height
+      body.style.margin = prevBody.margin
+      body.style.height = prevBody.height
+    }
+  }, [])
 
   useEffect(() => {
     const container = containerRef.current
@@ -248,10 +292,12 @@ export default function RepoGalaxy({ cameraPoseRef }: RepoGalaxyProps) {
   }, [cameraPoseRef])
 
   return (
-    <div ref={containerRef} className="repo-galaxy-root">
-      <canvas ref={canvasRef} className="repo-galaxy-canvas" />
+    <div ref={containerRef} style={rootStyle}>
+      <canvas ref={canvasRef} style={canvasStyle} />
       {hoverLabel && (
-        <div className="repo-galaxy-label" style={{ left: hoverLabel.x, top: hoverLabel.y }}>
+        <div
+          style={{ ...labelStyle, left: hoverLabel.x, top: hoverLabel.y }}
+        >
           {hoverLabel.name}
         </div>
       )}
