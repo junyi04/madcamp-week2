@@ -7,13 +7,12 @@ import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 const INTRO_DURATION = 5.0;
 const AUTO_ROTATE_SPEED = 0.15;
 
-
-// ?°ì£¼ ->  ?€???´ë¡œì¦ˆì—…
+// universe -> galaxy : close up
 const FOCUS_DURATION = 3.0;
 const FOCUS_DISTANCE = 5.0;
 const FOCUS_HEIGHT = 1.2;
 
-// ?¢æ??-> ?¡Æi¡Ì¨ù ?¢æ?¢¥e¡°©« ??
+// galaxy -> universe : wide shot
 const DEFAULT_CAMERA = new Vector3(0, 6, 18);
 const DEFAULT_TARGET = new Vector3(0, 0, 0);
 

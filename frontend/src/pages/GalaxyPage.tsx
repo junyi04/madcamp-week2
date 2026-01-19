@@ -9,7 +9,7 @@ import AuthGate from '../components/AuthGate'
 import { useFriends } from '../hooks/useFriends'
 import UniverseCanvas from '../components/UniverseCanvas'
 
-const FOCUS_TRANSITION_MS = 3000  // 전환 지연 시간 조정
+const FOCUS_TRANSITION_MS = 1500  // 전환 지연 시간 조정
 
 const GalaxyPage = () => {
   const { auth, status, message, setMessage, apiBaseUrl, handleGithubLogin, handleLogout } =
@@ -33,6 +33,8 @@ const GalaxyPage = () => {
   const starCount = galaxy?.celestialObjects.length ?? 0
   const title = selectedRepo ? selectedRepo.name : 'All repositories'
   const showRepoGalaxy = selectedRepoId != null
+  const showUniverseLayer = !showRepoGalaxy
+  const showRepoLayer = showRepoGalaxy
   const clearFocusTimer = () => {
     if (focusTimerRef.current != null) {
       window.clearTimeout(focusTimerRef.current)
@@ -122,25 +124,33 @@ const GalaxyPage = () => {
             {sidebarOpen ? 'Hide sidebar' : 'Show sidebar'}
           </button>
 
-          {showRepoGalaxy ? (
+          <div
+            className={`absolute inset-0 transition-opacity duration-[420ms] ease-in-out ${
+              showUniverseLayer ? 'opacity-100' : 'opacity-0'
+            } ${showUniverseLayer ? 'pointer-events-auto' : 'pointer-events-none'}`}
+          >
+            <UniverseCanvas
+              repos={summary?.galaxies ?? []}
+              selectedRepoId={selectedRepoId}
+              focusRepoId={focusRepoId}
+              exitRepoId={exitRepoId}
+              onSelectRepo={() => {}}
+            />
+
+            <div className="relative z-10 h-full">
+              <GalaxyCanvas stars={galaxy?.celestialObjects ?? []} />
+            </div>
+          </div>
+
+          <div
+            className={`absolute inset-0 transition-opacity duration-[420ms] ease-in-out ${
+              showRepoLayer ? 'opacity-100' : 'opacity-0'
+            } ${showRepoLayer ? 'pointer-events-auto' : 'pointer-events-none'}`}
+          >
             <div className="relative z-10 h-full">
               <RepoGalaxy />
             </div>
-          ) : (
-            <>
-              <UniverseCanvas
-                repos={summary?.galaxies ?? []}
-                selectedRepoId={selectedRepoId}
-                focusRepoId={focusRepoId}
-                exitRepoId={exitRepoId}
-                onSelectRepo={() => {}}
-              />
-
-              <div className="relative z-10 h-full">
-                <GalaxyCanvas stars={galaxy?.celestialObjects ?? []} />
-              </div>
-            </>
-          )}
+          </div>
 
           <TopStatus
             title={title}
