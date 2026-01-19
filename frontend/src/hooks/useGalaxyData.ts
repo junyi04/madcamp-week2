@@ -17,9 +17,9 @@ export const useGalaxyData = (auth: AuthState | null, apiBaseUrl: string) => {
     if (withSync) {
       setSyncing(true)
       try {
-        await fetch(
-          `${apiBaseUrl}/oauth/repos?accessToken=${encodeURIComponent(auth.accessToken)}`,
-        )
+        await fetch(`${apiBaseUrl}/oauth/repos`, {
+          headers: { Authorization: `Bearer ${auth.appToken}` },
+        })
       } catch {
         // Ignore sync failures and still attempt to fetch summary.
       }
@@ -123,10 +123,13 @@ export const useGalaxyData = (auth: AuthState | null, apiBaseUrl: string) => {
 
       setSyncing(true)
       void fetch(
-        `${apiBaseUrl}/oauth/commits/sync?accessToken=${encodeURIComponent(
-          auth.accessToken,
-        )}&owner=${encodeURIComponent(auth.githubId)}&repo=${encodeURIComponent(repo.name)}`,
-        { method: 'POST' },
+        `${apiBaseUrl}/oauth/commits/sync?owner=${encodeURIComponent(
+          auth.githubId,
+        )}&repo=${encodeURIComponent(repo.name)}`,
+        {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${auth.appToken}` },
+        },
       ).catch(() => {
         // Commit sync is optional for UI; proceed to load cached stars.
       })
@@ -166,7 +169,7 @@ export const useGalaxyData = (auth: AuthState | null, apiBaseUrl: string) => {
     } else {
       void loadSingleGalaxy(selectedRepoId)
     }
-  }, [apiBaseUrl, auth, summary, selectedRepoId])
+  }, [apiBaseUrl, auth, selectedRepoId])
 
   return {
     summary,

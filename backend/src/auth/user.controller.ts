@@ -26,7 +26,7 @@ export default class UserController {
 
   // 깃허브 로그인 콜백
   @Get('/github/callback')
-  public async gitbuhCallback(@Query('code') code: string) {
+  public async githubCallback(@Query('code') code: string) {
     return {
       message: '로그인 성공!',
       code: code
@@ -35,27 +35,39 @@ export default class UserController {
 
   // 레포 가져오기
   @Get('/repos')
-  public async getRepos(@Query('accessToken') accessToken: string) {
-    return await this.userService.getRepos(accessToken);
+  @UseGuards(AuthGuard('jwt'))
+  public async getRepos(@Req() req: { user?: { userId?: number } }) {
+    if (!req.user?.userId) {
+      throw new UnauthorizedException('Missing user id.');
+    }
+    return await this.userService.getReposForUser(req.user.userId);
   }
 
   // 커밋 가져오기
   @Get('/commits')
+  @UseGuards(AuthGuard('jwt'))
   public async getCommits(
-    @Query('accessToken') accessToken: string,
+    @Req() req: { user?: { userId?: number } },
     @Query('owner') owner: string,
     @Query('repo') repo: string,
   ) {
-    return await this.userService.getCommits(accessToken, owner, repo);
+    if (!req.user?.userId) {
+      throw new UnauthorizedException('Missing user id.');
+    }
+    return await this.userService.getCommitsForUser(req.user.userId, owner, repo);
   }
 
   @Post('/commits/sync')
+  @UseGuards(AuthGuard('jwt'))
   public async syncCommits(
-    @Query('accessToken') accessToken: string,
+    @Req() req: { user?: { userId?: number } },
     @Query('owner') owner: string,
     @Query('repo') repo: string,
   ) {
-    await this.userService.getCommits(accessToken, owner, repo, true);
+    if (!req.user?.userId) {
+      throw new UnauthorizedException('Missing user id.');
+    }
+    await this.userService.getCommitsForUser(req.user.userId, owner, repo, true);
     return {
       stats: 202,
       message: 'Sync started',

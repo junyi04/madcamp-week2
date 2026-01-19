@@ -1,6 +1,5 @@
 export type AuthState = {
   appToken: string
-  accessToken: string
   githubId: string
 }
 

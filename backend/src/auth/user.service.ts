@@ -18,7 +18,6 @@ export interface IGithubUserTypes {
   name: string | null;
   description: string | null;
   location: string | null;
-  accessToken: string;
   totalStats: number;
   publicRepos: number;
   userId: number;
@@ -128,7 +127,6 @@ export default class UserService {
       name,
       description: bio,
       location: company,
-      accessToken: access_token,
       publicRepos: public_repos,
       totalStats: followers,
     };
@@ -177,26 +175,15 @@ export default class UserService {
   }
 
   // 레포 목록 받음
-  public async getRepos(accessToken: string): Promise<IGithubRepo[]> {
+  public async getReposForUser(userId: number): Promise<IGithubRepo[]> {
+    const { accessToken, githubUserId } =
+      await this.getGithubAuthForUser(userId);
+
     const url = "https://api.github.com/user/repos?sort=updated&per_page=100";
     const { data } = await this.githubGet<GithubRepoResponse[]>(url, accessToken);
 
     if (!Array.isArray(data) || data.length === 0) {
       return [];
-    }
-
-    const userResponse = await this.githubGet<GithubUserResponse>(
-      "https://api.github.com/user",
-      accessToken,
-    );
-
-    const githubLogin = userResponse.data.login;
-    const githubUser = await this.prisma.githubUser.findUnique({
-      where: { githubId: githubLogin },
-    });
-
-    if (!githubUser) {
-      throw new UnauthorizedException("User info not registered.");
     }
 
     const activeRepos = data.filter(
@@ -223,7 +210,7 @@ export default class UserService {
           repoId: BigInt(repo.id),
           name: repo.name,
           updatedAt: repo.updated_at,
-          userId: githubUser.id,
+          userId: githubUserId,
           galaxyX: coords.galaxyX,
           galaxyY: coords.galaxyY,
           galaxyZ: coords.galaxyZ,
@@ -292,12 +279,13 @@ export default class UserService {
   }
 
   // 최신 커밋 30개 가져오고 Star 생성
-  public async getCommits(
-    accessToken: string,
+  public async getCommitsForUser(
+    userId: number,
     owner: string,
     repo: string,
     forceSync = false,
   ): Promise<IcommitStar[]> {
+    const { accessToken } = await this.getGithubAuthForUser(userId);
     if (!forceSync) {
       const cachedOwner = await this.prisma.githubUser.findUnique({
         where: { githubId: owner },
@@ -324,9 +312,21 @@ export default class UserService {
       }
     }
 
-    const url = `https://api.github.com/repos/${owner}/${repo}/commits?per_page=30`;
+    const repository = await this.prisma.repository.findFirst({
+      where: {
+        name: repo,
+        userId: userId,
+      },
+      select: { repoId: true , id:true, galaxyX: true, galaxyY: true, galaxyZ: true },
+    })
 
-    const { data } = await this.githubGet<GithubCommitResponse[]>(url, accessToken);
+    if (repository === null){
+      throw new NotFoundException("Repository not found.");
+    }
+
+    if (!repository?.repoId) {
+      throw new NotFoundException("Repository not found.");
+    }
 
     const ownerUser = await this.prisma.githubUser.findUnique({
       where: { githubId: owner },
@@ -336,33 +336,11 @@ export default class UserService {
       throw new UnauthorizedException("Owner is not registered.");
     }
 
-    const repoInfo = await this.githubGet<GithubRepoInfoResponse>(
-      `https://api.github.com/repos/${owner}/${repo}`,
-      accessToken,
-    );
-    if (!repoInfo.data?.id) {
-      throw new NotFoundException("Repository not found.");
-    }
+    const url = `https://api.github.com/repos/${owner}/${repo}/commits?per_page=30`;
 
-    const repository = await this.prisma.repository.findFirst({
-      where: {
-        repoId: BigInt(repoInfo.data.id),
-        userId: ownerUser.id,
-      },
-    });
-
-    if (!repository) {
-      throw new NotFoundException("Repository not found.");
-    }
+    const { data } = await this.githubGet<GithubCommitResponse[]>(url, accessToken);
 
     if (!Array.isArray(data) || data.length === 0) {
-      await this.syncPullRequestStars(
-        accessToken,
-        owner,
-        repo,
-        repository,
-      );
-      // repoId로 DB에서 Repository 조회
       await this.prisma.repository.update({
         where: { id: repository.id },
         data: { lastSyncedAt: new Date() },
@@ -440,15 +418,15 @@ export default class UserService {
     });
   }
 
-  // 커밋 1개를 Star로 만들거나 갱신
+  // PR 1개를 Star로 만들거나 갱신
   private async syncPullRequestStars(
     accessToken: string,
     owner: string,
     repo: string,
     repository: {
       id: number;
-      galaxyX: number;
-      galaxyY: number;
+      galaxyX: number;  
+      galaxyY: number;  
       galaxyZ: number;
     },
   ) {
@@ -475,7 +453,7 @@ export default class UserService {
     }
   }
 
-  // PR 1개를 Star로 만들거나 갱신
+  // Commit 1개를 Star로 만들거나 갱신
   private async upsertCommitStar(
     repository: { id: number; galaxyX: number; galaxyY: number; galaxyZ: number },
     commitId: number,
@@ -633,6 +611,22 @@ export default class UserService {
     return hash;
   }
 
+  private async getGithubAuthForUser(userId: number) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      include: { githubUser: true },
+    });
+
+    if (!user?.githubUser?.accessToken) {
+      throw new UnauthorizedException("User info not registered.");
+    }
+
+    return {
+      accessToken: user.githubUser.accessToken,
+      githubUserId: user.githubUser.id,
+    };
+  }
+
 
   // Github API 호출 함수 (rate limit, 권한, 미존재 예외 처리)
   private async githubGet<T>(url: string, accessToken: string): Promise<AxiosResponse<T>> {
@@ -644,9 +638,13 @@ export default class UserService {
 
     const cacheKey = `${accessToken}:${url}`;
     const cached = this.githubCache.get(cacheKey);
+    if (cached && cached.expiresAt <= now) {
+      this.githubCache.delete(cacheKey);
+    }
     if (cached && cached.expiresAt > now) {
       return { data: cached.data as T } as AxiosResponse<T>;
     }
+    
 
     try {
       const response = await axios.get<T>(url, {

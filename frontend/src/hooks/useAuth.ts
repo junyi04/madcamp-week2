@@ -76,7 +76,6 @@ export const useAuth = () => {
 
         storeAuth({
           appToken: payload.data.user.appToken,
-          accessToken: payload.data.user.accessToken,
           githubId: payload.data.user.githubId,
         })
         setStatus('success')
