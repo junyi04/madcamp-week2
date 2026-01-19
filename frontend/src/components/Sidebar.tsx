@@ -1,9 +1,10 @@
 import { useState } from 'react'
-import type { GalaxySummary, SummaryResponse } from '../types/universe'
+import type { GalaxyResponse, GalaxySummary, SummaryResponse } from '../types/universe'
 import FriendPanel, { type FriendPanelProps } from './FriendPanel'
 
 type SidebarProps = {
   summary: SummaryResponse | null
+  galaxy: GalaxyResponse | null
   selectedRepoId: number | null
   syncing: boolean
   onSelectRepo: (repoId: number) => void
@@ -13,6 +14,7 @@ type SidebarProps = {
 
 const Sidebar = ({
   summary,
+  galaxy,
   selectedRepoId,
   syncing,
   onSelectRepo,
@@ -20,6 +22,23 @@ const Sidebar = ({
   friendPanel,
 }: SidebarProps) => {
   const [reposOpen, setReposOpen] = useState(true)
+
+  const formatCommitDate = (value?: string) => {
+    if (!value) return ''
+    const parsed = new Date(value)
+    if (Number.isNaN(parsed.getTime())) return ''
+    return new Intl.DateTimeFormat('en-US', {
+      month: 'short',
+      day: '2-digit',
+    }).format(parsed)
+  }
+
+  const selectedCommits =
+    selectedRepoId && galaxy?.repoId === selectedRepoId
+      ? galaxy.celestialObjects
+          .filter((item) => item.type === 'COMMIT' && item.commit?.message)
+          .slice(0, 30)
+      : []
 
   return (
     <aside className="border-b border-white/5 bg-black/30 p-6 lg:border-b-0 lg:border-r lg:border-white/10">
@@ -76,19 +95,62 @@ const Sidebar = ({
       {reposOpen && (
         <div className="mt-3 space-y-2">
           {summary?.galaxies.map((repo: GalaxySummary) => (
-            <button
-              key={repo.repoId}
-              type="button"
-              onClick={() => onSelectRepo(repo.repoId)}
-              className={`flex w-full items-center justify-between rounded-xl border px-3 py-2 text-left text-sm transition ${
-                repo.repoId === selectedRepoId
-                  ? 'border-cyan-300/60 bg-cyan-300/10 text-cyan-100'
-                  : 'border-white/10 bg-white/5 text-slate-200 hover:border-white/30'
-              }`}
-            >
-              <span className="truncate">{repo.name}</span>
-              <span className="text-xs text-slate-400">{repo.commitCount}</span>
-            </button>
+            <div key={repo.repoId} className="space-y-2">
+              <button
+                type="button"
+                onClick={() => onSelectRepo(repo.repoId)}
+                className={`flex w-full items-center justify-between rounded-xl border px-3 py-2 text-left text-sm transition ${
+                  repo.repoId === selectedRepoId
+                    ? 'border-cyan-300/60 bg-gradient-to-r from-cyan-300/15 via-cyan-300/5 to-transparent text-cyan-100'
+                    : 'border-white/10 bg-white/5 text-slate-200 hover:border-white/30'
+                }`}
+              >
+                <span className="truncate">{repo.name}</span>
+                <span className="rounded-full border border-white/10 bg-black/40 px-2 py-0.5 text-[10px] tracking-[0.2em] text-slate-300">
+                  {repo.commitCount}
+                </span>
+              </button>
+              {repo.repoId === selectedRepoId && (
+                <div className="space-y-2">
+                  {selectedCommits.length > 0 && (
+                    <div className="rounded-xl border border-white/10 bg-gradient-to-b from-white/5 via-black/30 to-black/20 px-3 py-3 text-xs text-slate-300">
+                      <div className="flex items-center justify-between text-[10px] uppercase tracking-[0.2em] text-slate-400">
+                        <span>Latest</span>
+                        <span>{selectedCommits.length}</span>
+                      </div>
+                      <div className="mt-3 space-y-3">
+                        {selectedCommits.map((item) => (
+                          <div key={item.id} className="flex items-start gap-3">
+                            <span className="mt-1.5 h-1.5 w-1.5 rounded-full bg-cyan-300/80" />
+                            <div className="min-w-0 space-y-1">
+                              <div className="truncate text-slate-200">
+                                {item.commit?.message}
+                              </div>
+                              <div className="flex items-center gap-2 text-[10px] uppercase tracking-[0.18em] text-slate-500">
+                                <span>{formatCommitDate(item.commit?.date)}</span>
+                                <span className="h-0.5 w-0.5 rounded-full bg-slate-600" />
+                                <span>{item.commit?.sha.slice(0, 6)}</span>
+                                {item.commit?.type && (
+                                  <>
+                                    <span className="h-0.5 w-0.5 rounded-full bg-slate-600" />
+                                    <span className="text-cyan-200/80">{item.commit.type}</span>
+                                  </>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {selectedCommits.length === 0 && (
+                    <div className="rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-xs text-slate-500">
+                      No commits yet.
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
           ))}
           {!summary?.galaxies.length && (
             <div className="rounded-xl border border-dashed border-white/10 p-4 text-xs text-slate-400">

@@ -31,9 +31,12 @@ const GalaxyPage = () => {
         <div className="scrollbar-hidden h-full overflow-y-auto">
         <Sidebar
           summary={summary}
+          galaxy={galaxy}
           selectedRepoId={selectedRepoId}
           syncing={syncing}
-          onSelectRepo={setSelectedRepoId}
+          onSelectRepo={(repoId) =>
+            setSelectedRepoId((prev) => (prev === repoId ? null : repoId))
+          }
           onLogout={() => {
             handleLogout()
             setMessage('')
@@ -59,6 +62,7 @@ const GalaxyPage = () => {
 
           <UniverseCanvas
             repos={summary?.galaxies ?? []}
+            selectedRepoId={selectedRepoId}
             onSelectRepo={setSelectedRepoId}
           />
 

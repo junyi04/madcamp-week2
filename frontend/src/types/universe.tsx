@@ -31,4 +31,16 @@ export type CelestialObject = {
   z: number
   size: number
   color: string
+  commit?: {
+    id: number
+    sha: string
+    message: string
+    date: string
+    type: string
+  } | null
+  pullRequest?: {
+    id: string
+    title?: string | null
+    url?: string | null
+  } | null
 }

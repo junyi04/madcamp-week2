@@ -122,15 +122,14 @@ export const useGalaxyData = (auth: AuthState | null, apiBaseUrl: string) => {
       }
 
       setSyncing(true)
-      try {
-        await fetch(
-          `${apiBaseUrl}/oauth/commits?accessToken=${encodeURIComponent(
-            auth.accessToken,
-          )}&owner=${encodeURIComponent(auth.githubId)}&repo=${encodeURIComponent(repo.name)}`,
-        )
-      } catch {
+      void fetch(
+        `${apiBaseUrl}/oauth/commits/sync?accessToken=${encodeURIComponent(
+          auth.accessToken,
+        )}&owner=${encodeURIComponent(auth.githubId)}&repo=${encodeURIComponent(repo.name)}`,
+        { method: 'POST' },
+      ).catch(() => {
         // Commit sync is optional for UI; proceed to load cached stars.
-      }
+      })
 
       try {
         const response = await fetch(

@@ -11,6 +11,7 @@ type GalaxyClusterProps = {
   scale?: number;
   label?: string;
   showLabel?: boolean;
+  hitRadius?: number;
   phase: "enter" | "exit";
   phaseStartedAt: number;
   onPointerOver?: (event: ThreeEvent<PointerEvent>) => void;
@@ -25,6 +26,7 @@ export default function GalaxyCluster(props: GalaxyClusterProps) {
     scale = 1,
     label,
     showLabel,
+    hitRadius = 0,
     onPointerOver,
     onPointerOut,
     onClick,
@@ -113,17 +115,32 @@ export default function GalaxyCluster(props: GalaxyClusterProps) {
     return { geometry: geo, material: mat };
   }, [id]);
 
+  const useHitArea = hitRadius > 0;
+
   return (
     <group position={position} scale={scale}>
       <points
         geometry={geometry}
         material={material}
-        onPointerOver={onPointerOver}
-        onPointerOut={onPointerOut}
-        onClick={onClick}
+        onPointerOver={useHitArea ? undefined : onPointerOver}
+        onPointerOut={useHitArea ? undefined : onPointerOut}
+        onClick={useHitArea ? undefined : onClick}
       />
+      {useHitArea ? (
+        <mesh onPointerOver={onPointerOver} onPointerOut={onPointerOut} onClick={onClick}>
+          <sphereGeometry args={[hitRadius, 18, 18]} />
+          <meshBasicMaterial transparent opacity={0} depthWrite={false} />
+        </mesh>
+      ) : null}
       {showLabel && label ? (
-        <Html center transform distanceFactor={10} position={[0, 0.8, 0]}>
+        <Html
+          center
+          transform
+          distanceFactor={10}
+          position={[0, 0.8, 0]}
+          occlude={false}
+          zIndexRange={[200, 0]}
+        >
           <div className="pointer-events-none rounded-full bg-slate-900/80 px-2 py-1 text-[10px] text-slate-100 shadow-lg">
             {label}
           </div>

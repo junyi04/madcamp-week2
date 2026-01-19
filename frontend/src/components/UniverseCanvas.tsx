@@ -16,6 +16,7 @@ type RepoLike = {
 
 type UniverseCanvasProps = {
   repos: RepoLike[];
+  selectedRepoId?: number | null;
   onSelectRepo?: (repoId: number) => void;
 };
 
@@ -32,11 +33,17 @@ type ClusterState = {
 };
 
 const EXIT_DURATION = 1.2;  // 은하 삭제 애니메이션 지속 시간
+const FOCUS_DURATION = 1.8;
 
-export default function UniverseCanvas({ repos, onSelectRepo }: UniverseCanvasProps) {
+export default function UniverseCanvas({
+  repos,
+  selectedRepoId,
+  onSelectRepo,
+}: UniverseCanvasProps) {
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [isHovered, setIsHovered] = useState(false);
   const [introDone, setIntroDone] = useState(false);
+  const [focusActive, setFocusActive] = useState(false);
   const [clusters, setClusters] = useState<ClusterState[]>([]);
 
   const placements = useMemo(() => {
@@ -137,7 +144,33 @@ export default function UniverseCanvas({ repos, onSelectRepo }: UniverseCanvasPr
     }
   }, [clusters, hoveredId]);
 
-  const autoRotate = introDone && !isHovered;
+  useEffect(() => {
+    if (selectedRepoId == null) {
+      setFocusActive(false);
+      return;
+    }
+
+    setFocusActive(true);
+    const timer = window.setTimeout(() => {
+      setFocusActive(false);
+    }, FOCUS_DURATION * 1000);
+
+    return () => window.clearTimeout(timer);
+  }, [selectedRepoId]);
+
+  const focusTarget = useMemo(() => {
+    if (selectedRepoId == null) {
+      return null;
+    }
+    const targetId = String(selectedRepoId);
+    const cluster =
+      clusters.find((item) => item.id === targetId && item.phase !== "exit") ??
+      placements.find((item) => item.id === targetId);
+
+    return cluster ? cluster.position : null;
+  }, [selectedRepoId, clusters, placements]);
+
+  const autoRotate = introDone && !isHovered && !focusActive;
 
   return (
     <Canvas
@@ -157,6 +190,8 @@ export default function UniverseCanvas({ repos, onSelectRepo }: UniverseCanvasPr
       {/* 개별 은하 그림 */}
       {clusters.map((p) => {
         const isExiting = p.phase === "exit";
+        const isFocused =
+          selectedRepoId != null && String(selectedRepoId) === p.id && !isExiting;
         return (
           <GalaxyCluster
             key={p.id}
@@ -165,6 +200,7 @@ export default function UniverseCanvas({ repos, onSelectRepo }: UniverseCanvasPr
             scale={p.scale}
             label={p.label}
             showLabel={hoveredId === p.id && !isExiting}
+            hitRadius={isFocused ? 5.5 * p.scale : 0}
             phase={p.phase}
             phaseStartedAt={p.phaseStartedAt}
             onPointerOver={
@@ -198,7 +234,11 @@ export default function UniverseCanvas({ repos, onSelectRepo }: UniverseCanvasPr
       })}
 
       {/* 카메라 움직임 */}
-      <IntroCameraRig autoRotate={autoRotate} onIntroDone={() => setIntroDone(true)} />
+      <IntroCameraRig
+        autoRotate={autoRotate}
+        focusTarget={focusTarget}
+        onIntroDone={() => setIntroDone(true)}
+      />
     </Canvas>
   );
 }
