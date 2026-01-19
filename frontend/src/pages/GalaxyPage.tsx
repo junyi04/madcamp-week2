@@ -2,6 +2,7 @@ import { useState } from 'react'
 import GalaxyCanvas from '../components/GalaxyCanvas'
 import Sidebar from '../components/Sidebar'
 import TopStatus from '../components/TopStatus'
+import RepoGalaxy from '../components/repo-galaxy/RepoGalaxy'
 import { useAuth } from '../hooks/useAuth'
 import { useGalaxyData } from '../hooks/useGalaxyData'
 import AuthGate from '../components/AuthGate'
@@ -26,6 +27,7 @@ const GalaxyPage = () => {
     summary?.galaxies.find((repo) => repo.repoId === selectedRepoId) ?? null
   const starCount = galaxy?.celestialObjects.length ?? 0
   const title = selectedRepo ? selectedRepo.name : 'All repositories'
+  const showRepoGalaxy = selectedRepoId != null
 
   return (
     <main className="h-screen overflow-hidden bg-[radial-gradient(circle_at_15%_10%,_rgba(56,189,248,0.16),_transparent_55%),radial-gradient(circle_at_80%_0%,_rgba(16,185,129,0.16),_transparent_50%),radial-gradient(circle_at_50%_85%,_rgba(250,204,21,0.1),_transparent_50%),linear-gradient(180deg,_#03050c,_#0b1525_60%,_#02040a)] text-slate-100">
@@ -75,15 +77,23 @@ const GalaxyPage = () => {
             {sidebarOpen ? 'Hide sidebar' : 'Show sidebar'}
           </button>
 
-          <UniverseCanvas
-            repos={summary?.galaxies ?? []}
-            selectedRepoId={selectedRepoId}
-            onSelectRepo={setSelectedRepoId}
-          />
+          {showRepoGalaxy ? (
+            <div className="relative z-10 h-full">
+              <RepoGalaxy />
+            </div>
+          ) : (
+            <>
+              <UniverseCanvas
+                repos={summary?.galaxies ?? []}
+                selectedRepoId={selectedRepoId}
+                onSelectRepo={setSelectedRepoId}
+              />
 
-          <div className="relative z-10 h-full">
-            <GalaxyCanvas stars={galaxy?.celestialObjects ?? []} />
-          </div>
+              <div className="relative z-10 h-full">
+                <GalaxyCanvas stars={galaxy?.celestialObjects ?? []} />
+              </div>
+            </>
+          )}
 
           <TopStatus
             title={title}

@@ -1,7 +1,7 @@
 import { useEffect, useRef, type MutableRefObject } from 'react'
 import * as THREE from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
-import type { CameraPose } from './repo-galaxy/RepoGalaxy'
+import type { CameraPose } from './components/repo-galaxy/RepoGalaxy'
 
 import rightImg from './assets/skybox_right.png'
 import leftImg from './assets/skybox_left.png'

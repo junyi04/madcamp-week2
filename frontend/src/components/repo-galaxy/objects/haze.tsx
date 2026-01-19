@@ -1,9 +1,12 @@
 import * as THREE from 'three'
-import { BASE_LAYER, HAZE_MAX, HAZE_MIN, HAZE_OPACITY } from '../config/renderConfig'
+import { BASE_LAYER, HAZE_MAX, HAZE_MIN, HAZE_OPACITY } from '../../../config/renderConfig'
 import { clamp } from '../utils'
 
 
-const hazeTextureUrl = new URL('../resources/feathered60.png', import.meta.url).href
+const hazeTextureUrl = new URL(
+  '../../../assets/repo-galaxy/feathered60.png',
+  import.meta.url,
+).href
 const hazeTexture = new THREE.TextureLoader().load(hazeTextureUrl)
 const hazeSprite = new THREE.SpriteMaterial({
   map: hazeTexture,

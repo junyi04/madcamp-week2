@@ -13,7 +13,7 @@ import {
   NUM_STARS,
   OUTER_CORE_X_DIST,
   OUTER_CORE_Y_DIST,
-} from '../config/galaxyConfig'
+} from '../../../config/galaxyConfig'
 import { gaussianRandom, spiral } from '../utils'
 import { Haze } from './haze'
 
