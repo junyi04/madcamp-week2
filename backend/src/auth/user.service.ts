@@ -296,7 +296,34 @@ export default class UserService {
     accessToken: string,
     owner: string,
     repo: string,
+    forceSync = false,
   ): Promise<IcommitStar[]> {
+    if (!forceSync) {
+      const cachedOwner = await this.prisma.githubUser.findUnique({
+        where: { githubId: owner },
+      });
+      if (cachedOwner) {
+        const cachedRepo = await this.prisma.repository.findFirst({
+          where: {
+            name: repo,
+            userId: cachedOwner.id,
+          },
+        });
+        if (cachedRepo?.lastSyncedAt) {
+          const cachedCommits = await this.prisma.commit.findMany({
+            where: { repoId: cachedRepo.id },
+            orderBy: { date: "desc" },
+            take: 30,
+          });
+          return cachedCommits.map((item) => ({
+            sha: item.sha,
+            message: item.message,
+            date: item.date,
+          }));
+        }
+      }
+    }
+
     const url = `https://api.github.com/repos/${owner}/${repo}/commits?per_page=30`;
 
     const { data } = await this.githubGet<GithubCommitResponse[]>(url, accessToken);

@@ -55,7 +55,7 @@ export default class UserController {
     @Query('owner') owner: string,
     @Query('repo') repo: string,
   ) {
-    await this.userService.getCommits(accessToken, owner, repo);
+    await this.userService.getCommits(accessToken, owner, repo, true);
     return {
       stats: 202,
       message: 'Sync started',
