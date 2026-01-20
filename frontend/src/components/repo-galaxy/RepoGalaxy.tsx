@@ -58,6 +58,35 @@ type RepoGalaxyProps = {
   active?: boolean
   commitCount?: number
   seedKey?: string | number
+  commitTypes?: string[]
+}
+
+const normalizeCommitType = (value?: string) => {
+  const normalized = value?.trim().toLowerCase() ?? ''
+  if (normalized.startsWith('feat')) return 'feat'
+  if (normalized.startsWith('fix')) return 'fix'
+  if (normalized.startsWith('docs')) return 'docs'
+  if (normalized.startsWith('style')) return 'style'
+  if (normalized.startsWith('test')) return 'test'
+  if (normalized.startsWith('refactor')) return 'refactor'
+  if (normalized.startsWith('perf')) return 'perf'
+  if (normalized.startsWith('chore')) return 'chore'
+  if (normalized.startsWith('build')) return 'build'
+  if (normalized.startsWith('ci')) return 'ci'
+  return 'other'
+}
+
+const commitTypeColors: Record<string, number> = {
+  feat: 0x8db7e5,
+  fix: 0xf2929c,
+  docs: 0x8db7e5,
+  style: 0x8db7e5,
+  test: 0x8ccfbe,
+  refactor: 0xc6b0e5,
+  perf: 0xc6b0e5,
+  chore: 0xe7b488,
+  build: 0xe7b488,
+  ci: 0xe7b488,
 }
 
 export default function RepoGalaxy({
@@ -65,6 +94,7 @@ export default function RepoGalaxy({
   active,
   commitCount,
   seedKey,
+  commitTypes,
 }: RepoGalaxyProps) {
   const [hoverLabel, setHoverLabel] = useState<{ name: string; x: number; y: number } | null>(
     null,
@@ -211,6 +241,10 @@ export default function RepoGalaxy({
     }
 
     const featureStarsData = Array.from({ length: featureStarCount }, (_, index) => {
+      const commitType = commitTypes?.length
+        ? normalizeCommitType(commitTypes[index % commitTypes.length])
+        : 'other'
+      const commitColor = commitTypeColors[commitType]
       const armIndex = Math.floor(randRange(seededRandom, 0, ARMS))
       const position = spiral(
         gaussianSeeded(ARM_X_MEAN, ARM_X_DIST),
@@ -218,9 +252,11 @@ export default function RepoGalaxy({
         gaussianSeeded(0, thickness),
         (armIndex * 2 * Math.PI) / ARMS,
       )
-      const color = new THREE.Color()
-        .setHSL(randRange(seededRandom, 0.05, 0.15), 0.8, 0.65)
-        .getHex()
+      const color =
+        commitColor ??
+        new THREE.Color()
+          .setHSL(randRange(seededRandom, 0.05, 0.15), 0.8, 0.65)
+          .getHex()
       const size = randRange(seededRandom, 7, 14) // star size
       return {
         name: `Commit-${index + 1}`,
@@ -312,7 +348,7 @@ export default function RepoGalaxy({
 
       renderer.dispose()
     }
-  }, [cameraPoseRef, commitCount, seedKey])
+  }, [cameraPoseRef, commitCount, seedKey, commitTypes])
 
   useEffect(() => {
     if (!active) return

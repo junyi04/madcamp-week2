@@ -72,15 +72,15 @@ const normalizeCommitType = (value?: string) => {
 }
 
 const commitTypeColors: Record<string, string> = {
-  fix: '#f87171',
-  docs: '#60a5fa',
-  style: '#60a5fa',
-  test: '#34d399',
-  refactor: '#c084fc',
-  perf: '#c084fc',
-  chore: '#fb923c',
-  build: '#fb923c',
-  ci: '#fb923c',
+  fix: '#ea848b',
+  docs: '#8db7e5',
+  style: '#8db7e5',
+  test: '#8ccfbe',
+  refactor: '#c6b0e5',
+  perf: '#c6b0e5',
+  chore: '#e7b488',
+  build: '#e7b488',
+  ci: '#e7b488',
 }
 
 

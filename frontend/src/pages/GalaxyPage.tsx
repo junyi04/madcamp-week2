@@ -1,7 +1,6 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import GalaxyCanvas from '../components/GalaxyCanvas'
 import Sidebar from '../components/Sidebar'
-import TopStatus from '../components/TopStatus'
 import RepoGalaxy from '../components/repo-galaxy/RepoGalaxy'
 import { useAuth } from '../hooks/useAuth'
 import { useGalaxyData } from '../hooks/useGalaxyData'
@@ -79,10 +78,17 @@ const GalaxyPage = () => {
   const selectedRepo =
     summary?.galaxies.find((repo) => repo.repoId === selectedRepoId) ?? null
   const starCount = galaxy?.celestialObjects.length ?? 0
-  const title = selectedRepo ? selectedRepo.name : 'All repositories'
   const showRepoGalaxy = selectedRepoId != null
   const showUniverseLayer = !showRepoGalaxy
   const showRepoLayer = showRepoGalaxy
+  const commitTypes = useMemo(() => {
+    if (!showRepoGalaxy) return []
+    return (
+      galaxy?.celestialObjects
+        .filter((item) => item.type === 'COMMIT' && item.commit?.type)
+        .map((item) => item.commit?.type as string) ?? []
+    )
+  }, [showRepoGalaxy, galaxy])
   function clearFocusTimer() {
     if (focusTimerRef.current != null) {
       window.clearTimeout(focusTimerRef.current)
@@ -215,14 +221,10 @@ const GalaxyPage = () => {
                 active={showRepoLayer}
                 commitCount={selectedRepo?.commitCount}
                 seedKey={selectedRepo?.repoId ?? selectedRepo?.name}
+                commitTypes={commitTypes}
               />
             </div>
           </div>
-
-          <TopStatus
-            title={title}
-            subtitle={starCount ? `${starCount} stars rendered` : 'No stars yet'}
-          />
 
           {bannerMessage && (
             <div className="absolute bottom-6 left-6 z-10 rounded-xl border border-amber-200/30 bg-amber-200/10 px-3 py-2 text-xs text-amber-100">

@@ -49,29 +49,29 @@ const Sidebar = ({
 
   const commitDotClass: Record<string, string> = {
     feat: 'bg-cyan-300/80',
-    fix: 'bg-rose-400/80',
-    docs: 'bg-sky-300/80',
-    style: 'bg-sky-300/80',
-    test: 'bg-emerald-300/80',
-    refactor: 'bg-violet-400/80',
-    perf: 'bg-violet-400/80',
-    chore: 'bg-orange-300/90',
-    build: 'bg-orange-300/90',
-    ci: 'bg-orange-300/90',
+    fix: 'bg-rose-300/60',
+    docs: 'bg-sky-300/60',
+    style: 'bg-sky-300/60',
+    test: 'bg-emerald-300/60',
+    refactor: 'bg-violet-300/60',
+    perf: 'bg-violet-300/60',
+    chore: 'bg-orange-300/60',
+    build: 'bg-orange-300/60',
+    ci: 'bg-orange-300/60',
     other: 'bg-slate-500',
   }
 
   const commitTypeClass: Record<string, string> = {
     feat: 'text-cyan-200/80',
-    fix: 'text-rose-200/90',
-    docs: 'text-sky-200/90',
-    style: 'text-sky-200/90',
-    test: 'text-emerald-200/90',
-    refactor: 'text-violet-200/90',
-    perf: 'text-violet-200/90',
-    chore: 'text-orange-200/90',
-    build: 'text-orange-200/90',
-    ci: 'text-orange-200/90',
+    fix: 'text-rose-200/70',
+    docs: 'text-sky-200/70',
+    style: 'text-sky-200/70',
+    test: 'text-emerald-200/70',
+    refactor: 'text-violet-200/70',
+    perf: 'text-violet-200/70',
+    chore: 'text-orange-200/70',
+    build: 'text-orange-200/70',
+    ci: 'text-orange-200/70',
     other: 'text-slate-400',
   }
 
@@ -177,7 +177,7 @@ const Sidebar = ({
                           const typeLabel = isMerge ? 'PR' : item.commit?.type
 
                           const typeClass = isMerge
-                            ? 'text-amber-200/90'
+                            ? 'text-amber-200/70'
                             : commitTypeClass[commitType]
                             
                           return (
