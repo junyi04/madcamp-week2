@@ -9,6 +9,7 @@ export const useGalaxyData = (auth: AuthState | null, apiBaseUrl: string) => {
   const [message, setMessage] = useState('')
   const lastSyncedRepoRef = useRef<number | null>(null)
   const backgroundSyncedReposRef = useRef<Set<number>>(new Set())
+  const backgroundSyncInFlightRef = useRef<Set<number>>(new Set())
   const summaryRefreshTimeoutRef = useRef<number | null>(null)
   const summaryRefreshQueueRef = useRef(0)
   const summaryRefreshInFlightRef = useRef(false)
@@ -259,7 +260,8 @@ export const useGalaxyData = (auth: AuthState | null, apiBaseUrl: string) => {
       .filter(
         (repoId) =>
           repoId !== selectedRepoId &&
-          !backgroundSyncedReposRef.current.has(repoId),
+          !backgroundSyncedReposRef.current.has(repoId) &&
+          !backgroundSyncInFlightRef.current.has(repoId),
       )
 
     if (!repoIds.length) {
@@ -270,6 +272,7 @@ export const useGalaxyData = (auth: AuthState | null, apiBaseUrl: string) => {
     const concurrency = 3
 
     const syncRepo = async (repoId: number) => {
+      backgroundSyncInFlightRef.current.add(repoId)
       try {
         const response = await fetch(
           `${apiBaseUrl}/oauth/commits/sync?repoId=${encodeURIComponent(repoId)}`,
@@ -278,6 +281,11 @@ export const useGalaxyData = (auth: AuthState | null, apiBaseUrl: string) => {
             headers: { Authorization: `Bearer ${auth.appToken}` },
           },
         )
+        if (response.status === 409) {
+          backgroundSyncedReposRef.current.add(repoId)
+          scheduleSummaryRefresh(2)
+          return
+        }
         if (!response.ok) {
           throw new Error('Failed to sync commits.')
         }
@@ -287,6 +295,8 @@ export const useGalaxyData = (auth: AuthState | null, apiBaseUrl: string) => {
         if (!cancelled) {
           setMessage(error instanceof Error ? error.message : 'Commit sync failed.')
         }
+      } finally {
+        backgroundSyncInFlightRef.current.delete(repoId)
       }
     }
 

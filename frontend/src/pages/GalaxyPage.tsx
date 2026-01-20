@@ -24,15 +24,16 @@ const GalaxyPage = () => {
   )
   const friendPanel = useFriends(auth, apiBaseUrl)
 
+  if (!auth) {
+    return <AuthGate status={status} message={message} onLogin={handleGithubLogin} />
+  }
+
   useEffect(() => {
     return () => {
       clearFocusTimer()
     }
   }, [])
 
-  if (!auth) {
-    return <AuthGate status={status} message={message} onLogin={handleGithubLogin} />
-  }
 
   const selectedRepo =
     summary?.galaxies.find((repo) => repo.repoId === selectedRepoId) ?? null
@@ -41,7 +42,7 @@ const GalaxyPage = () => {
   const showRepoGalaxy = selectedRepoId != null
   const showUniverseLayer = !showRepoGalaxy
   const showRepoLayer = showRepoGalaxy
-  const clearFocusTimer = () => {
+  function clearFocusTimer() {
     if (focusTimerRef.current != null) {
       window.clearTimeout(focusTimerRef.current)
       focusTimerRef.current = null
