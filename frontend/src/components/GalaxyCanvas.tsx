@@ -5,6 +5,12 @@ import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js'
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js'
 import type { CelestialObject } from '../types/universe'
+import skyboxRight from '../assets/skybox_right.png'
+import skyboxLeft from '../assets/skybox_left.png'
+import skyboxUp from '../assets/skybox_up.png'
+import skyboxDown from '../assets/skybox_down.png'
+import skyboxFront from '../assets/skybox_front.png'
+import skyboxBack from '../assets/skybox_back.png'
 
 const clamp = (value: number, min: number, max: number) =>
   Math.min(max, Math.max(min, value))
@@ -94,6 +100,7 @@ const GalaxyCanvas = ({ stars, tintColor }: GalaxyCanvasProps) => {
   const cameraRef = useRef<THREE.PerspectiveCamera | null>(null)
   const controlsRef = useRef<OrbitControls | null>(null)
   const rafRef = useRef<number | null>(null)
+  const skyboxRef = useRef<THREE.CubeTexture | null>(null)
 
   useEffect(() => {
     const container = containerRef.current
@@ -104,6 +111,19 @@ const GalaxyCanvas = ({ stars, tintColor }: GalaxyCanvasProps) => {
     const scene = new THREE.Scene()
     scene.fog = new THREE.Fog('#020409', 160, 520)
     sceneRef.current = scene
+
+    const skybox = new THREE.CubeTextureLoader().load([
+      skyboxRight,
+      skyboxLeft,
+      skyboxUp,
+      skyboxDown,
+      skyboxFront,
+      skyboxBack,
+    ])
+    skybox.colorSpace = THREE.SRGBColorSpace
+    scene.background = skybox
+    scene.backgroundIntensity = 0.75
+    skyboxRef.current = skybox
 
     const camera = new THREE.PerspectiveCamera(
       55,
@@ -185,6 +205,10 @@ const GalaxyCanvas = ({ stars, tintColor }: GalaxyCanvasProps) => {
       composer.renderTarget1.dispose()
       composer.renderTarget2.dispose()
       renderer.dispose()
+      if (skyboxRef.current) {
+        skyboxRef.current.dispose()
+        skyboxRef.current = null
+      }
       container.removeChild(renderer.domElement)
       scene.clear()
     }

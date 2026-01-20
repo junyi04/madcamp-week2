@@ -40,6 +40,7 @@ const GalaxyPage = () => {
     message: galaxyMessage,
     setMessage: setGalaxyMessage,
     viewLoading,
+    prefetchRepoSync,
   } = useGalaxyData(
     auth,
     apiBaseUrl,
@@ -77,18 +78,19 @@ const GalaxyPage = () => {
 
   const selectedRepo =
     summary?.galaxies.find((repo) => repo.repoId === selectedRepoId) ?? null
-  const starCount = galaxy?.celestialObjects.length ?? 0
   const showRepoGalaxy = selectedRepoId != null
   const showUniverseLayer = !showRepoGalaxy
   const showRepoLayer = showRepoGalaxy
+  const repoGalaxyReady =
+    showRepoLayer && galaxy?.repoId != null && galaxy.repoId === selectedRepoId
   const commitTypes = useMemo(() => {
-    if (!showRepoGalaxy) return []
+    if (!repoGalaxyReady) return []
     return (
       galaxy?.celestialObjects
         .filter((item) => item.type === 'COMMIT' && item.commit?.type)
         .map((item) => item.commit?.type as string) ?? []
     )
-  }, [showRepoGalaxy, galaxy])
+  }, [repoGalaxyReady, galaxy])
   function clearFocusTimer() {
     if (focusTimerRef.current != null) {
       window.clearTimeout(focusTimerRef.current)
@@ -101,6 +103,7 @@ const GalaxyPage = () => {
     setFocusRepoId(repoId)
     setExitRepoId(null)
     setSelectedRepoId(null)
+    void prefetchRepoSync(repoId)
     focusTimerRef.current = window.setTimeout(() => {
       setSelectedRepoId(repoId)
       setFocusRepoId(null)
@@ -215,12 +218,14 @@ const GalaxyPage = () => {
               } ${showRepoLayer ? 'pointer-events-auto' : 'pointer-events-none'}`}
           >
             <div className="relative z-10 h-full">
-              <RepoGalaxy
-                active={showRepoLayer}
-                commitCount={selectedRepo?.commitCount}
-                seedKey={selectedRepo?.repoId ?? selectedRepo?.name}
-                commitTypes={commitTypes}
-              />
+              {repoGalaxyReady && (
+                <RepoGalaxy
+                  active={repoGalaxyReady}
+                  commitCount={selectedRepo?.commitCount}
+                  seedKey={selectedRepo?.repoId ?? selectedRepo?.name}
+                  commitTypes={commitTypes}
+                />
+              )}
             </div>
           </div>
 

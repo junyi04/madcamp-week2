@@ -14,7 +14,9 @@ export const useGalaxyData = (
   const [message, setMessage] = useState('')
   const lastSyncedRepoRef = useRef<number | null>(null)
   const lastAggregateKeyRef = useRef<string | null>(null)
+  const summaryRef = useRef<SummaryResponse | null>(null)
   const summaryOwnerRef = useRef<string | null>(null)
+  const prefetchSyncRef = useRef<Map<number, Promise<void>>>(new Map())
   const backgroundSyncInFlightRef = useRef<Set<number>>(new Set())
   const initialBackgroundSyncPendingRef = useRef(false)
   const prevAuthRef = useRef<AuthState | null>(null)
@@ -106,6 +108,7 @@ export const useGalaxyData = (
       }
       const data = (await response.json()) as SummaryResponse
       setSummary(data)
+      summaryRef.current = data
       setMessage('')
       summaryOwnerRef.current = currentViewKey
       summaryOk = true
@@ -149,7 +152,9 @@ export const useGalaxyData = (
       prevAuthRef.current = null
       initialBackgroundSyncPendingRef.current = false
       lastAggregateKeyRef.current = null
+      summaryRef.current = null
       summaryOwnerRef.current = null
+      prefetchSyncRef.current.clear()
       viewLoadingStartedAtRef.current = null
       if (viewLoadingTimeoutRef.current != null) {
         window.clearTimeout(viewLoadingTimeoutRef.current)
@@ -178,7 +183,9 @@ export const useGalaxyData = (
     setGalaxy(null)
     setMessage('')
     lastAggregateKeyRef.current = null
+    summaryRef.current = null
     summaryOwnerRef.current = null
+    prefetchSyncRef.current.clear()
   }, [auth, selectedUserId])
 
   useEffect(() => {
@@ -188,7 +195,9 @@ export const useGalaxyData = (
       setSelectedRepoId(null)
       lastSyncedRepoRef.current = null
       lastAggregateKeyRef.current = null
+      summaryRef.current = null
       summaryOwnerRef.current = null
+      prefetchSyncRef.current.clear()
       backgroundSyncedReposRef.current.clear()
       if (summaryRefreshTimeoutRef.current) {
         window.clearTimeout(summaryRefreshTimeoutRef.current)
@@ -203,6 +212,47 @@ export const useGalaxyData = (
 
     void fetchSummary(true)
   }, [apiBaseUrl, auth, selectedUserId])
+
+  const prefetchRepoSync = async (repoId: number) => {
+    if (!auth || isViewingFriend) {
+      return
+    }
+
+    if (prefetchSyncRef.current.has(repoId)) {
+      await prefetchSyncRef.current.get(repoId)
+      return
+    }
+
+    const syncPromise = (async () => {
+      try {
+        const response = await fetch(
+          `${apiBaseUrl}/oauth/commits/sync?repoId=${encodeURIComponent(repoId)}`,
+          {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${auth.appToken}` },
+          },
+        )
+        if (response.status === 409) {
+          lastSyncedRepoRef.current = repoId
+          return
+        }
+        if (!response.ok) {
+          throw new Error('Failed to sync commits.')
+        }
+        lastSyncedRepoRef.current = repoId
+      } catch (error) {
+        if (lastSyncedRepoRef.current === repoId) {
+          lastSyncedRepoRef.current = null
+        }
+        setMessage(error instanceof Error ? error.message : 'Commit sync failed.')
+      } finally {
+        prefetchSyncRef.current.delete(repoId)
+      }
+    })()
+
+    prefetchSyncRef.current.set(repoId, syncPromise)
+    await syncPromise
+  }
 
   useEffect(() => {
     if (!auth) {
@@ -224,6 +274,10 @@ export const useGalaxyData = (
     }
 
     if (summaryOwnerRef.current !== currentViewKey) {
+      return
+    }
+
+    if (selectedRepoId != null) {
       return
     }
 
@@ -296,19 +350,55 @@ export const useGalaxyData = (
       }
     }
 
+    const summaryKey = summary.galaxies
+      .map((repo) => `${repo.repoId}:${repo.commitCount}`)
+      .join('|')
+    if (lastAggregateKeyRef.current !== summaryKey) {
+      lastAggregateKeyRef.current = summaryKey
+      void loadAggregateGalaxy()
+    } else {
+      finishViewLoading()
+    }
+
+    return () => {
+      cancelled = true
+    }
+  }, [apiBaseUrl, auth, summary, selectedRepoId, selectedUserId, currentViewKey])
+
+  useEffect(() => {
+    if (!auth || selectedRepoId == null) {
+      return
+    }
+
+    if (summaryOwnerRef.current !== currentViewKey) {
+      return
+    }
+
+    const summarySnapshot = summaryRef.current
+    if (!summarySnapshot) {
+      return
+    }
+
+    let cancelled = false
+
     const loadSingleGalaxy = async (repoId: number) => {
-      const repo = summary.galaxies.find((item) => item.repoId === repoId)
+      const repo = summarySnapshot.galaxies.find((item) => item.repoId === repoId)
       if (!repo) {
         finishViewLoading()
         return
       }
 
+      const pendingSync = prefetchSyncRef.current.get(repoId)
+      if (pendingSync) {
+        await pendingSync
+      }
+
       setSyncing(true)
-      if (!isViewingFriend && lastSyncedRepoRef.current !== repoId) {
-        lastSyncedRepoRef.current = repoId
-        try {
-          const syncResponse = await fetch(
-            `${apiBaseUrl}/oauth/commits/sync?repoId=${encodeURIComponent(repo.repoId)}`,
+        if (!isViewingFriend && lastSyncedRepoRef.current !== repoId) {
+          lastSyncedRepoRef.current = repoId
+          try {
+            const syncResponse = await fetch(
+              `${apiBaseUrl}/oauth/commits/sync?repoId=${encodeURIComponent(repo.repoId)}`,
             {
               method: 'POST',
               headers: { Authorization: `Bearer ${auth.appToken}` },
@@ -317,7 +407,6 @@ export const useGalaxyData = (
           if (!syncResponse.ok) {
             throw new Error('Failed to sync commits.')
           }
-          scheduleSummaryRefresh(2)
         } catch (error) {
           if (!cancelled) {
             setMessage(error instanceof Error ? error.message : 'Commit sync failed.')
@@ -356,21 +445,6 @@ export const useGalaxyData = (
         }
         setGalaxy(data)
         setMessage('')
-        setSummary((prev) => {
-          if (!prev) {
-            return prev
-          }
-          const current = prev.galaxies.find((item) => item.repoId === data.repoId)
-          if (current?.commitCount === data.counts.commits) {
-            return prev
-          }
-          const updated = prev.galaxies.map((item) =>
-            item.repoId === data.repoId
-              ? { ...item, commitCount: data.counts.commits }
-              : item,
-          )
-          return { ...prev, galaxies: updated }
-        })
       } catch (error) {
         if (!cancelled) {
           setMessage(error instanceof Error ? error.message : 'Galaxy fetch failed.')
@@ -383,25 +457,13 @@ export const useGalaxyData = (
       }
     }
 
-    if (!selectedRepoId) {
-      const summaryKey = summary.galaxies
-        .map((repo) => `${repo.repoId}:${repo.commitCount}`)
-        .join('|')
-      if (lastAggregateKeyRef.current !== summaryKey) {
-        lastAggregateKeyRef.current = summaryKey
-        void loadAggregateGalaxy()
-      } else {
-        finishViewLoading()
-      }
-    } else {
-      lastAggregateKeyRef.current = null
-      void loadSingleGalaxy(selectedRepoId)
-    }
+    lastAggregateKeyRef.current = null
+    void loadSingleGalaxy(selectedRepoId)
 
     return () => {
       cancelled = true
     }
-  }, [apiBaseUrl, auth, summary, selectedRepoId, selectedUserId, currentViewKey])
+  }, [apiBaseUrl, auth, selectedRepoId, selectedUserId, currentViewKey])
 
   useEffect(() => {
     if (
@@ -506,5 +568,6 @@ export const useGalaxyData = (
     message,
     setMessage,
     viewLoading,
+    prefetchRepoSync,
   }
 }

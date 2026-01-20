@@ -1,9 +1,13 @@
 import { Vector3 } from 'three'
 import { ARM_X_DIST, SPIRAL } from '../../config/galaxyConfig'
 
-export function gaussianRandom(mean = 0, stdev = 1): number {
-  const u = 1 - Math.random()
-  const v = Math.random()
+export function gaussianRandom(
+  mean = 0,
+  stdev = 1,
+  random: () => number = Math.random,
+): number {
+  const u = 1 - random()
+  const v = random()
   const z = Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v)
 
   return z * stdev + mean

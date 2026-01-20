@@ -13,15 +13,17 @@ export class Star {
   position: THREE.Vector3
   starType: number
   obj: THREE.Sprite | null
+  random: () => number
 
-  constructor(position: THREE.Vector3) {
+  constructor(position: THREE.Vector3, random: () => number = Math.random) {
     this.position = position
+    this.random = random
     this.starType = this.generateStarType()
     this.obj = null
   }
 
   private generateStarType(): number {
-    let num = Math.random() * 100.0
+    let num = this.random() * 100.0
     const pct = starTypes.percentage
     for (let i = 0; i < pct.length; i++) {
       num -= pct[i]
