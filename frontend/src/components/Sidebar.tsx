@@ -100,7 +100,7 @@ const Sidebar = ({
         <p className="text-xs uppercase tracking-[0.35em] text-cyan-300/80">
           Code Galaxy
         </p>
-        <h2 className="mt-2 text-xl font-semibold">Universe Map</h2>
+        <h2 className="mt-2 text-xl font-semibold">GitHubble</h2>
       </div>
       <button
         type="button"

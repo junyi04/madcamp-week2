@@ -500,7 +500,7 @@ const GalaxyPage = () => {
                       key={entry.key}
                       className="flex items-center justify-between rounded-xl border border-white/10 bg-white/5 px-3 py-2"
                     >
-                      <div className="flex items-center gap-3">
+                      <div className="flex min-w-0 flex-[0.7] items-center gap-3">
                         <span
                           className={`h-2.5 w-2.5 rounded-full ${entry.dotClass}`}
                         />
@@ -508,9 +508,17 @@ const GalaxyPage = () => {
                           {entry.label}
                         </span>
                       </div>
-                      <span className="text-xs text-slate-300">
-                        {entry.count} · {entry.percent.toFixed(1)}%
-                      </span>
+                      <div className="flex flex-[2.0] items-center gap-6">
+                        <div className="h-2 w-full rounded-full bg-white/5">
+                          <div
+                            className={`h-2 rounded-full ${entry.dotClass}`}
+                            style={{ width: `${entry.percent.toFixed(1)}%` }}
+                          />
+                        </div>
+                        <span className="w-20 text-right text-xs text-slate-300">
+                          {entry.count} · {entry.percent.toFixed(1)}%
+                        </span>
+                      </div>
                     </div>
                   ))}
                 </div>
