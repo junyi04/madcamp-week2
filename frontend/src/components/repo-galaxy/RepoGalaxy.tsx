@@ -69,8 +69,10 @@ export default function RepoGalaxy({
   const [hoverLabel, setHoverLabel] = useState<{ name: string; x: number; y: number } | null>(
     null,
   )
+
   const containerRef = useRef<HTMLDivElement | null>(null)
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
+
   const cameraRef = useRef<THREE.PerspectiveCamera | null>(null)
   const controlsRef = useRef<OrbitControls | null>(null)
 
@@ -79,17 +81,21 @@ export default function RepoGalaxy({
     const canvas = canvasRef.current
     if (!canvas || !container) return
 
+    // Scene
     const scene = new THREE.Scene()
     scene.fog = new THREE.FogExp2(0xebe2db, 0.00003)
 
-    const width = container.clientWidth
-    const height = container.clientHeight
-    const camera = new THREE.PerspectiveCamera(60, width / height, 0.1, 5000000)
+    const initW = Math.max(1, container.clientWidth)
+    const initH = Math.max(1, container.clientHeight)
+
+    // Camera
+    const camera = new THREE.PerspectiveCamera(60, initW / initH, 0.1, 5_000_000)
     camera.position.set(0, 500, 500)
     camera.up.set(0, 0, 1)
     camera.lookAt(0, 0, 0)
     cameraRef.current = camera
 
+    // Controls
     const orbit = new OrbitControls(camera, canvas)
     orbit.enableDamping = true
     orbit.dampingFactor = 0.05
@@ -104,6 +110,7 @@ export default function RepoGalaxy({
     orbit.update()
     controlsRef.current = orbit
 
+    // Render
     const renderer = new THREE.WebGLRenderer({
       antialias: true,
       canvas,
@@ -111,17 +118,18 @@ export default function RepoGalaxy({
       alpha: true,
     })
     renderer.setPixelRatio(window.devicePixelRatio)
-    renderer.setSize(width, height)
+    renderer.setSize(initW, initH, false)
     renderer.outputColorSpace = THREE.SRGBColorSpace
     renderer.toneMapping = THREE.ACESFilmicToneMapping
     renderer.toneMappingExposure = 0.5
     renderer.setClearColor(0x000000, 0)
 
+    // Postprocessing
     const renderScene = new RenderPass(scene, camera)
     renderScene.clearColor = new THREE.Color(0x000000)
     renderScene.clearAlpha = 0
 
-    const bloomPass = new UnrealBloomPass(new THREE.Vector2(width, height), 1.0, 0.2, 0.9)
+    const bloomPass = new UnrealBloomPass(new THREE.Vector2(initW, initH), 1.0, 0.2, 0.9)
     bloomPass.threshold = BLOOM_PARAMS.bloomThreshold
     bloomPass.strength = BLOOM_PARAMS.bloomStrength
     bloomPass.radius = BLOOM_PARAMS.bloomRadius
@@ -154,9 +162,31 @@ export default function RepoGalaxy({
     baseComposer.addPass(renderScene)
     baseComposer.addPass(finalPass)
 
-    const galaxy = new Galaxy(scene)
+    // Resize (container 자동 대응)
+    const applySizes = () => {
+      const w = container.clientWidth
+      const h = container.clientHeight
+      if (w <= 0 || h <= 0) return
+
+      renderer.setSize(w, h, false)
+      camera.aspect = w / h
+      camera.updateProjectionMatrix()
+
+      bloomPass.setSize(w, h)
+      bloomComposer.setSize(w, h)
+      overlayComposer.setSize(w, h)
+      baseComposer.setSize(w, h)
+    }
+
+    // 초기 1회
+    applySizes()
+
+    // 사이드바 토글 등 레이아웃 변화 즉시 감지
+    const ro = new ResizeObserver(() => applySizes())
+    ro.observe(container)
 
     // 커밋 개수만큼 feature star 생성 : 50개 이상이면 스케일 적용
+    const galaxy = new Galaxy(scene)    
     const rawCommitCount = Math.max(0, Math.floor(commitCount ?? 0))
     const featureStarCount =
       rawCommitCount < 50
@@ -193,7 +223,7 @@ export default function RepoGalaxy({
       }
     })
 
-    const featureStars = featureStarsData.map((entry) => {
+    const featureSprites = featureStarsData.map((entry) => {
       const star = new FeatureStar(entry.position, {
         name: entry.name,
         size: entry.size,
@@ -202,6 +232,8 @@ export default function RepoGalaxy({
       return star.toThreeObject(scene)
     })
 
+
+    // Hover Label
     const raycaster = new THREE.Raycaster()
     raycaster.params.Sprite.threshold = 8
     const pointer = new THREE.Vector2()
@@ -212,7 +244,7 @@ export default function RepoGalaxy({
       const y = -((event.clientY - rect.top) / rect.height) * 2 + 1
       pointer.set(x, y)
       raycaster.setFromCamera(pointer, camera)
-      const hits = raycaster.intersectObjects(featureStars, false)
+      const hits = raycaster.intersectObjects(featureSprites, false)
       if (hits.length > 0) {
         const hit = hits[0].object
         const name = hit.userData?.name as string | undefined
@@ -233,17 +265,7 @@ export default function RepoGalaxy({
     canvas.addEventListener('pointermove', updateHoverLabel)
     canvas.addEventListener('pointerleave', clearHoverLabel)
 
-    const resizeRendererToDisplaySize = (target: THREE.WebGLRenderer) => {
-      const domCanvas = target.domElement
-      const width = domCanvas.clientWidth
-      const height = domCanvas.clientHeight
-      const needResize = domCanvas.width !== width || domCanvas.height !== height
-      if (needResize) {
-        target.setSize(width, height, false)
-      }
-      return needResize
-    }
-
+    // Render Pipeline
     const renderPipeline = () => {
       camera.layers.set(BLOOM_LAYER)
       bloomComposer.render()
@@ -258,82 +280,39 @@ export default function RepoGalaxy({
     let rafId = 0
     const render = () => {
       orbit.update()
-
-      if (resizeRendererToDisplaySize(renderer)) {
-        const domCanvas = renderer.domElement
-        camera.aspect = domCanvas.clientWidth / domCanvas.clientHeight
-        camera.updateProjectionMatrix()
-        bloomPass.setSize(domCanvas.clientWidth, domCanvas.clientHeight)
-        bloomComposer.setSize(domCanvas.clientWidth, domCanvas.clientHeight)
-        overlayComposer.setSize(domCanvas.clientWidth, domCanvas.clientHeight)
-        baseComposer.setSize(domCanvas.clientWidth, domCanvas.clientHeight)
-      }
-
-      const domCanvas = renderer.domElement
-      camera.aspect = domCanvas.clientWidth / domCanvas.clientHeight
-      camera.updateProjectionMatrix()
-
-      if (cameraPoseRef) {
-        const current = cameraPoseRef.current
-        if (current) {
-          current.position.x = camera.position.x
-          current.position.y = camera.position.y
-          current.position.z = camera.position.z
-          current.quaternion.x = camera.quaternion.x
-          current.quaternion.y = camera.quaternion.y
-          current.quaternion.z = camera.quaternion.z
-          current.quaternion.w = camera.quaternion.w
-        } else {
-          cameraPoseRef.current = {
-            position: {
-              x: camera.position.x,
-              y: camera.position.y,
-              z: camera.position.z,
-            },
-            quaternion: {
-              x: camera.quaternion.x,
-              y: camera.quaternion.y,
-              z: camera.quaternion.z,
-              w: camera.quaternion.w,
-            },
-          }
-        }
-      }
-
       galaxy.updateScale(camera)
-
       renderPipeline()
-
       rafId = requestAnimationFrame(render)
     }
-
     rafId = requestAnimationFrame(render)
 
     return () => {
+      ro.disconnect()
       canvas.removeEventListener('pointermove', updateHoverLabel)
       canvas.removeEventListener('pointerleave', clearHoverLabel)
+
       cancelAnimationFrame(rafId)
       orbit.dispose()
+
       bloomComposer.dispose()
       overlayComposer.dispose()
       baseComposer.dispose()
-      featureStars.forEach((sprite) => {
+
+      featureSprites.forEach((sprite) => {
         scene.remove(sprite)
         sprite.material.dispose()
       })
+
       renderer.dispose()
     }
   }, [cameraPoseRef, commitCount, seedKey])
 
   useEffect(() => {
-    if (!active) {
-      return
-    }
+    if (!active) return
     const camera = cameraRef.current
     const controls = controlsRef.current
-    if (!camera || !controls) {
-      return
-    }
+    if (!camera || !controls) return
+
     camera.position.set(0, 500, 500)
     camera.lookAt(0, 0, 0)
     controls.target.set(0, 0, 0)
@@ -343,13 +322,7 @@ export default function RepoGalaxy({
   return (
     <div ref={containerRef} style={rootStyle}>
       <canvas ref={canvasRef} style={canvasStyle} />
-      {hoverLabel && (
-        <div
-          style={{ ...labelStyle, left: hoverLabel.x, top: hoverLabel.y }}
-        >
-          {hoverLabel.name}
-        </div>
-      )}
+      {hoverLabel && <div style={{ ...labelStyle, left: hoverLabel.x, top: hoverLabel.y }}>{hoverLabel.name}</div>}
     </div>
   )
 }

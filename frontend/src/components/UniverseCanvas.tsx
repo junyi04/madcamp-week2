@@ -222,7 +222,6 @@ export default function UniverseCanvas({
             scale={p.scale}
             commitCount={p.commitCount}
             label={p.label}
-            showLabel={hoveredId === p.id && !isExiting}
             hitRadius={isFocused ? 5.5 * p.scale : 0}
             phase={p.phase}
             phaseStartedAt={p.phaseStartedAt}
