@@ -57,6 +57,12 @@ export const useGalaxyData = (
     }, remaining)
   }
 
+  const backgroundSyncedReposRef = useRef<Set<number>>(new Set())
+  const summaryRefreshTimeoutRef = useRef<number | null>(null)
+  const summaryRefreshQueueRef = useRef(0)
+  const summaryRefreshInFlightRef = useRef(false)
+
+  // 레포를 폴링 방식으로 30초마다 호출
   const fetchSummary = async (withSync: boolean) => {
     if (!auth) {
       return
@@ -467,6 +473,68 @@ export const useGalaxyData = (
       }
     }
   }, [])
+
+  useEffect(() => {
+    if (!auth || !summary) {
+      return
+    }
+
+    let cancelled = false
+
+    const repoIds = summary.galaxies
+      .map((repo) => repo.repoId)
+      .filter(
+        (repoId) =>
+          repoId !== selectedRepoId &&
+          !backgroundSyncedReposRef.current.has(repoId),
+      )
+
+    if (!repoIds.length) {
+      return undefined
+    }
+
+    const queue = [...repoIds]
+    const concurrency = 3
+
+    const syncRepo = async (repoId: number) => {
+      try {
+        const response = await fetch(
+          `${apiBaseUrl}/oauth/commits/sync?repoId=${encodeURIComponent(repoId)}`,
+          {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${auth.appToken}` },
+          },
+        )
+        if (!response.ok) {
+          throw new Error('Failed to sync commits.')
+        }
+        backgroundSyncedReposRef.current.add(repoId)
+        scheduleSummaryRefresh(2)
+      } catch (error) {
+        if (!cancelled) {
+          setMessage(error instanceof Error ? error.message : 'Commit sync failed.')
+        }
+      }
+    }
+
+    const runWorker = async () => {
+      while (queue.length && !cancelled) {
+        const repoId = queue.shift()
+        if (repoId == null) {
+          return
+        }
+        await syncRepo(repoId)
+      }
+    }
+
+    void Promise.all(
+      Array.from({ length: Math.min(concurrency, queue.length) }, () => runWorker()),
+    )
+
+    return () => {
+      cancelled = true
+    }
+  }, [apiBaseUrl, auth, summary, selectedRepoId])
 
   return {
     summary,

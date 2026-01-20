@@ -92,8 +92,6 @@ const GalaxyPage = () => {
     setSelectedUserId(userId)
   }
 
-  
-
   return (
     <main className="h-screen overflow-hidden bg-[radial-gradient(circle_at_15%_10%,_rgba(56,189,248,0.16),_transparent_55%),radial-gradient(circle_at_80%_0%,_rgba(16,185,129,0.16),_transparent_50%),radial-gradient(circle_at_50%_85%,_rgba(250,204,21,0.1),_transparent_50%),linear-gradient(180deg,_#03050c,_#0b1525_60%,_#02040a)] text-slate-100">
       <div
@@ -194,7 +192,11 @@ const GalaxyPage = () => {
             } ${showRepoLayer ? 'pointer-events-auto' : 'pointer-events-none'}`}
           >
             <div className="relative z-10 h-full">
-              <RepoGalaxy active={showRepoLayer} />
+              <RepoGalaxy
+                active={showRepoLayer}
+                commitCount={selectedRepo?.commitCount}
+                seedKey={selectedRepo?.repoId ?? selectedRepo?.name}
+              />
             </div>
           </div>
 

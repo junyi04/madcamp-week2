@@ -5,7 +5,7 @@ import { Vector3 } from "three";
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 
 const INTRO_DURATION = 5.0;
-const AUTO_ROTATE_SPEED = 0.15;
+const AUTO_ROTATE_SPEED = 0.3;
 
 // universe -> galaxy : close up
 const FOCUS_DURATION = 3.0;

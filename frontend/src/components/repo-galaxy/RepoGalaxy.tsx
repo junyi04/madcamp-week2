@@ -2,6 +2,14 @@ import { useEffect, useRef, useState, type CSSProperties, type MutableRefObject 
 import * as THREE from 'three'
 
 import { CompositionShader } from '../../shaders/CompositionShader'
+import {
+  ARMS,
+  ARM_X_DIST,
+  ARM_X_MEAN,
+  ARM_Y_DIST,
+  ARM_Y_MEAN,
+  GALAXY_THICKNESS,
+} from '../../config/galaxyConfig'
 import { BASE_LAYER, BLOOM_LAYER, BLOOM_PARAMS, OVERLAY_LAYER } from '../../config/renderConfig'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js'
@@ -10,6 +18,8 @@ import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPa
 import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js'
 import { Galaxy } from './objects/galaxy'
 import { FeatureStar } from './objects/featureStar'
+import { spiral } from './utils'
+import { hashStringToSeed, mulberry32, randRange } from '../../utils/seed'
 
 const rootStyle: CSSProperties = {
   width: '100%',
@@ -46,14 +56,23 @@ export type CameraPose = {
 type RepoGalaxyProps = {
   cameraPoseRef?: MutableRefObject<CameraPose | null>
   active?: boolean
+  commitCount?: number
+  seedKey?: string | number
 }
 
-export default function RepoGalaxy({ cameraPoseRef, active }: RepoGalaxyProps) {
+export default function RepoGalaxy({
+  cameraPoseRef,
+  active,
+  commitCount,
+  seedKey,
+}: RepoGalaxyProps) {
   const [hoverLabel, setHoverLabel] = useState<{ name: string; x: number; y: number } | null>(
     null,
   )
+
   const containerRef = useRef<HTMLDivElement | null>(null)
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
+
   const cameraRef = useRef<THREE.PerspectiveCamera | null>(null)
   const controlsRef = useRef<OrbitControls | null>(null)
 
@@ -62,17 +81,21 @@ export default function RepoGalaxy({ cameraPoseRef, active }: RepoGalaxyProps) {
     const canvas = canvasRef.current
     if (!canvas || !container) return
 
+    // Scene
     const scene = new THREE.Scene()
     scene.fog = new THREE.FogExp2(0xebe2db, 0.00003)
 
-    const width = container.clientWidth
-    const height = container.clientHeight
-    const camera = new THREE.PerspectiveCamera(60, width / height, 0.1, 5000000)
+    const initW = Math.max(1, container.clientWidth)
+    const initH = Math.max(1, container.clientHeight)
+
+    // Camera
+    const camera = new THREE.PerspectiveCamera(60, initW / initH, 0.1, 5_000_000)
     camera.position.set(0, 500, 500)
     camera.up.set(0, 0, 1)
     camera.lookAt(0, 0, 0)
     cameraRef.current = camera
 
+    // Controls
     const orbit = new OrbitControls(camera, canvas)
     orbit.enableDamping = true
     orbit.dampingFactor = 0.05
@@ -87,6 +110,7 @@ export default function RepoGalaxy({ cameraPoseRef, active }: RepoGalaxyProps) {
     orbit.update()
     controlsRef.current = orbit
 
+    // Render
     const renderer = new THREE.WebGLRenderer({
       antialias: true,
       canvas,
@@ -94,17 +118,18 @@ export default function RepoGalaxy({ cameraPoseRef, active }: RepoGalaxyProps) {
       alpha: true,
     })
     renderer.setPixelRatio(window.devicePixelRatio)
-    renderer.setSize(width, height)
+    renderer.setSize(initW, initH, false)
     renderer.outputColorSpace = THREE.SRGBColorSpace
     renderer.toneMapping = THREE.ACESFilmicToneMapping
     renderer.toneMappingExposure = 0.5
     renderer.setClearColor(0x000000, 0)
 
+    // Postprocessing
     const renderScene = new RenderPass(scene, camera)
     renderScene.clearColor = new THREE.Color(0x000000)
     renderScene.clearAlpha = 0
 
-    const bloomPass = new UnrealBloomPass(new THREE.Vector2(width, height), 1.0, 0.2, 0.9)
+    const bloomPass = new UnrealBloomPass(new THREE.Vector2(initW, initH), 1.0, 0.2, 0.9)
     bloomPass.threshold = BLOOM_PARAMS.bloomThreshold
     bloomPass.strength = BLOOM_PARAMS.bloomStrength
     bloomPass.radius = BLOOM_PARAMS.bloomRadius
@@ -137,16 +162,68 @@ export default function RepoGalaxy({ cameraPoseRef, active }: RepoGalaxyProps) {
     baseComposer.addPass(renderScene)
     baseComposer.addPass(finalPass)
 
-    const galaxy = new Galaxy(scene)
+    // Resize (container 자동 대응)
+    const applySizes = () => {
+      const w = container.clientWidth
+      const h = container.clientHeight
+      if (w <= 0 || h <= 0) return
 
-    const featureStarsData = [
-      { name: 'Aster-01', position: new THREE.Vector3(120, 40, 12), size: 12, color: 0xffe3a0 },
-      { name: 'Helion', position: new THREE.Vector3(-180, 70, -8), size: 12, color: 0xffc3a3 },
-      { name: 'Vega-X', position: new THREE.Vector3(60, -160, 6), size: 12, color: 0xa6d7ff },
-      { name: 'Nova-3', position: new THREE.Vector3(-90, -40, 18), size: 12, color: 0xffffff },
-      { name: 'Orionis', position: new THREE.Vector3(0, 220, -5), size: 12, color: 0xb0d4ff },
-    ]
-    const featureStars = featureStarsData.map((entry) => {
+      renderer.setSize(w, h, false)
+      camera.aspect = w / h
+      camera.updateProjectionMatrix()
+
+      bloomPass.setSize(w, h)
+      bloomComposer.setSize(w, h)
+      overlayComposer.setSize(w, h)
+      baseComposer.setSize(w, h)
+    }
+
+    // 초기 1회
+    applySizes()
+
+    // 사이드바 토글 등 레이아웃 변화 즉시 감지
+    const ro = new ResizeObserver(() => applySizes())
+    ro.observe(container)
+
+    // 커밋 개수만큼 feature star 생성 : 50개 이상이면 스케일 적용
+    const galaxy = new Galaxy(scene)    
+    const rawCommitCount = Math.max(0, Math.floor(commitCount ?? 0))
+    const featureStarCount =
+      rawCommitCount < 50
+        ? rawCommitCount
+        : Math.min(400, Math.floor(rawCommitCount * 0.2))
+    const seedBasis = String(seedKey ?? 'repo-galaxy')
+    const seededRandom = mulberry32(hashStringToSeed(seedBasis))
+    const thickness = Math.max(8, GALAXY_THICKNESS)
+
+    const gaussianSeeded = (mean = 0, stdev = 1) => {
+      const u = 1 - seededRandom()
+      const v = seededRandom()
+      const z = Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v)
+      return z * stdev + mean
+    }
+
+    const featureStarsData = Array.from({ length: featureStarCount }, (_, index) => {
+      const armIndex = Math.floor(randRange(seededRandom, 0, ARMS))
+      const position = spiral(
+        gaussianSeeded(ARM_X_MEAN, ARM_X_DIST),
+        gaussianSeeded(ARM_Y_MEAN, ARM_Y_DIST),
+        gaussianSeeded(0, thickness),
+        (armIndex * 2 * Math.PI) / ARMS,
+      )
+      const color = new THREE.Color()
+        .setHSL(randRange(seededRandom, 0.05, 0.15), 0.8, 0.65)
+        .getHex()
+      const size = randRange(seededRandom, 7, 14) // star size
+      return {
+        name: `Commit-${index + 1}`,
+        position,
+        size,
+        color,
+      }
+    })
+
+    const featureSprites = featureStarsData.map((entry) => {
       const star = new FeatureStar(entry.position, {
         name: entry.name,
         size: entry.size,
@@ -155,6 +232,8 @@ export default function RepoGalaxy({ cameraPoseRef, active }: RepoGalaxyProps) {
       return star.toThreeObject(scene)
     })
 
+
+    // Hover Label
     const raycaster = new THREE.Raycaster()
     raycaster.params.Sprite.threshold = 8
     const pointer = new THREE.Vector2()
@@ -165,7 +244,7 @@ export default function RepoGalaxy({ cameraPoseRef, active }: RepoGalaxyProps) {
       const y = -((event.clientY - rect.top) / rect.height) * 2 + 1
       pointer.set(x, y)
       raycaster.setFromCamera(pointer, camera)
-      const hits = raycaster.intersectObjects(featureStars, false)
+      const hits = raycaster.intersectObjects(featureSprites, false)
       if (hits.length > 0) {
         const hit = hits[0].object
         const name = hit.userData?.name as string | undefined
@@ -186,17 +265,7 @@ export default function RepoGalaxy({ cameraPoseRef, active }: RepoGalaxyProps) {
     canvas.addEventListener('pointermove', updateHoverLabel)
     canvas.addEventListener('pointerleave', clearHoverLabel)
 
-    const resizeRendererToDisplaySize = (target: THREE.WebGLRenderer) => {
-      const domCanvas = target.domElement
-      const width = domCanvas.clientWidth
-      const height = domCanvas.clientHeight
-      const needResize = domCanvas.width !== width || domCanvas.height !== height
-      if (needResize) {
-        target.setSize(width, height, false)
-      }
-      return needResize
-    }
-
+    // Render Pipeline
     const renderPipeline = () => {
       camera.layers.set(BLOOM_LAYER)
       bloomComposer.render()
@@ -211,82 +280,39 @@ export default function RepoGalaxy({ cameraPoseRef, active }: RepoGalaxyProps) {
     let rafId = 0
     const render = () => {
       orbit.update()
-
-      if (resizeRendererToDisplaySize(renderer)) {
-        const domCanvas = renderer.domElement
-        camera.aspect = domCanvas.clientWidth / domCanvas.clientHeight
-        camera.updateProjectionMatrix()
-        bloomPass.setSize(domCanvas.clientWidth, domCanvas.clientHeight)
-        bloomComposer.setSize(domCanvas.clientWidth, domCanvas.clientHeight)
-        overlayComposer.setSize(domCanvas.clientWidth, domCanvas.clientHeight)
-        baseComposer.setSize(domCanvas.clientWidth, domCanvas.clientHeight)
-      }
-
-      const domCanvas = renderer.domElement
-      camera.aspect = domCanvas.clientWidth / domCanvas.clientHeight
-      camera.updateProjectionMatrix()
-
-      if (cameraPoseRef) {
-        const current = cameraPoseRef.current
-        if (current) {
-          current.position.x = camera.position.x
-          current.position.y = camera.position.y
-          current.position.z = camera.position.z
-          current.quaternion.x = camera.quaternion.x
-          current.quaternion.y = camera.quaternion.y
-          current.quaternion.z = camera.quaternion.z
-          current.quaternion.w = camera.quaternion.w
-        } else {
-          cameraPoseRef.current = {
-            position: {
-              x: camera.position.x,
-              y: camera.position.y,
-              z: camera.position.z,
-            },
-            quaternion: {
-              x: camera.quaternion.x,
-              y: camera.quaternion.y,
-              z: camera.quaternion.z,
-              w: camera.quaternion.w,
-            },
-          }
-        }
-      }
-
       galaxy.updateScale(camera)
-
       renderPipeline()
-
       rafId = requestAnimationFrame(render)
     }
-
     rafId = requestAnimationFrame(render)
 
     return () => {
+      ro.disconnect()
       canvas.removeEventListener('pointermove', updateHoverLabel)
       canvas.removeEventListener('pointerleave', clearHoverLabel)
+
       cancelAnimationFrame(rafId)
       orbit.dispose()
+
       bloomComposer.dispose()
       overlayComposer.dispose()
       baseComposer.dispose()
-      featureStars.forEach((sprite) => {
+
+      featureSprites.forEach((sprite) => {
         scene.remove(sprite)
         sprite.material.dispose()
       })
+
       renderer.dispose()
     }
-  }, [cameraPoseRef])
+  }, [cameraPoseRef, commitCount, seedKey])
 
   useEffect(() => {
-    if (!active) {
-      return
-    }
+    if (!active) return
     const camera = cameraRef.current
     const controls = controlsRef.current
-    if (!camera || !controls) {
-      return
-    }
+    if (!camera || !controls) return
+
     camera.position.set(0, 500, 500)
     camera.lookAt(0, 0, 0)
     controls.target.set(0, 0, 0)
@@ -296,13 +322,7 @@ export default function RepoGalaxy({ cameraPoseRef, active }: RepoGalaxyProps) {
   return (
     <div ref={containerRef} style={rootStyle}>
       <canvas ref={canvasRef} style={canvasStyle} />
-      {hoverLabel && (
-        <div
-          style={{ ...labelStyle, left: hoverLabel.x, top: hoverLabel.y }}
-        >
-          {hoverLabel.name}
-        </div>
-      )}
+      {hoverLabel && <div style={{ ...labelStyle, left: hoverLabel.x, top: hoverLabel.y }}>{hoverLabel.name}</div>}
     </div>
   )
 }

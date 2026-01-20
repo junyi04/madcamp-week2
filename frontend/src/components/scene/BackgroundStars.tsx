@@ -34,7 +34,7 @@ export default function BackgroundStars() {
     if (!material) {
       return;
     }
-    material.opacity = 0.45 + Math.sin(clock.elapsedTime * 0.6) * 0.08;
+    material.opacity = 0.25 + Math.sin(clock.elapsedTime * 0.6) * 0.05;
   });
 
   return (
@@ -43,7 +43,7 @@ export default function BackgroundStars() {
         ref={materialRef}
         size={0.09}
         color="#e2e8ff"
-        opacity={0.45}
+        opacity={0.25}
         transparent
         depthWrite={false}
       />
