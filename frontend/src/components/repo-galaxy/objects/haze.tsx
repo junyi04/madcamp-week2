@@ -20,10 +20,12 @@ const hazeSprite = new THREE.SpriteMaterial({
 export class Haze {
   position: THREE.Vector3
   obj: THREE.Sprite | null
+  random: () => number
 
-  constructor(position: THREE.Vector3) {
+  constructor(position: THREE.Vector3, random: () => number = Math.random) {
     this.position = position
     this.obj = null
+    this.random = random
   }
 
   updateScale(camera: THREE.Camera) {
@@ -44,7 +46,9 @@ export class Haze {
     sprite.position.copy(this.position)
 
     // varying size of dust clouds
-    sprite.scale.multiplyScalar(clamp(HAZE_MAX * Math.random(), HAZE_MIN, HAZE_MAX))
+    sprite.scale.multiplyScalar(
+      clamp(HAZE_MAX * this.random(), HAZE_MIN, HAZE_MAX),
+    )
 
     this.obj = sprite
     scene.add(sprite)
