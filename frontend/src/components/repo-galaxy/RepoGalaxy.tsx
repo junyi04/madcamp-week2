@@ -20,6 +20,15 @@ import { Galaxy } from './objects/galaxy'
 import { FeatureStar } from './objects/featureStar'
 import { spiral } from './utils'
 import { hashStringToSeed, mulberry32, randRange } from '../../utils/seed'
+import skyboxRight from '../../assets/skybox_right.png'
+import skyboxLeft from '../../assets/skybox_left.png'
+import skyboxUp from '../../assets/skybox_up.png'
+import skyboxDown from '../../assets/skybox_down.png'
+import skyboxFront from '../../assets/skybox_front.png'
+import skyboxBack from '../../assets/skybox_back.png'
+
+const SKYBOX_SIZE = 20000
+const SKYBOX_TINT = new THREE.Color(0.3, 0.3, 0.3)
 
 const rootStyle: CSSProperties = {
   width: '100%',
@@ -118,7 +127,36 @@ export default function RepoGalaxy({
 
     // Scene
     const scene = new THREE.Scene()
-    scene.fog = new THREE.FogExp2(0xebe2db, 0.00003)
+
+    const skyboxLoader = new THREE.TextureLoader()
+    const skyboxFaces = [
+      skyboxRight,
+      skyboxLeft,
+      skyboxUp,
+      skyboxDown,
+      skyboxFront,
+      skyboxBack,
+    ]
+    const skyboxTextures = skyboxFaces.map((face) => {
+      const texture = skyboxLoader.load(face)
+      texture.colorSpace = THREE.SRGBColorSpace
+      return texture
+    })
+    const skyboxMaterials = skyboxTextures.map(
+      (texture) =>
+        new THREE.MeshBasicMaterial({
+          map: texture,
+          color: SKYBOX_TINT,
+          side: THREE.BackSide,
+          depthWrite: false,
+        }),
+    )
+    const skyboxMesh = new THREE.Mesh(
+      new THREE.BoxGeometry(SKYBOX_SIZE, SKYBOX_SIZE, SKYBOX_SIZE),
+      skyboxMaterials,
+    )
+    skyboxMesh.frustumCulled = false
+    scene.add(skyboxMesh)
 
     const initW = Math.max(1, container.clientWidth)
     const initH = Math.max(1, container.clientHeight)
@@ -221,14 +259,14 @@ export default function RepoGalaxy({
     ro.observe(container)
 
     // 커밋 개수만큼 feature star 생성 : 70개 이상이면 스케일 적용
-    const galaxy = new Galaxy(scene)    
+    const galaxy = new Galaxy(scene)
     const rawCommitCount = Math.max(0, Math.floor(commitCount ?? 0));
     let featureStarCount: number;
 
     if (rawCommitCount < 70) {
-        featureStarCount = rawCommitCount;
+      featureStarCount = rawCommitCount;
     } else {
-        featureStarCount = 70 + Math.floor(Math.log10(rawCommitCount - 69) * 20);
+      featureStarCount = 70 + Math.floor(Math.log10(rawCommitCount - 69) * 20);
     }
 
     // 최대치는 200개
@@ -239,8 +277,8 @@ export default function RepoGalaxy({
     const thickness = Math.max(8, GALAXY_THICKNESS)
 
     const gaussianSeeded = (mean = 0, stdev = 1) => {
-      const u = 1 - seededRandom()
-      const v = seededRandom()
+      const u = 1 - randRange(seededRandom, 0, 1) // uniform(0,1] random doubles
+      const v = randRange(seededRandom, 0, 1)
       const z = Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v)
       return z * stdev + mean
     }
@@ -351,6 +389,10 @@ export default function RepoGalaxy({
         sprite.material.dispose()
       })
 
+      scene.remove(skyboxMesh)
+      skyboxMesh.geometry.dispose()
+      skyboxMaterials.forEach((material) => material.dispose())
+      skyboxTextures.forEach((texture) => texture.dispose())
       renderer.dispose()
     }
   }, [cameraPoseRef, commitCount, seedKey, commitTypes])

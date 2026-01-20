@@ -1,5 +1,4 @@
 import { Canvas } from "@react-three/fiber";
-import { Environment } from "@react-three/drei";
 import { useEffect, useMemo, useState } from "react";
 import GalaxyCluster from "./GalaxyCluster";
 import BackgroundEvents from "./scene/BackgroundEvents";
@@ -211,7 +210,6 @@ export default function UniverseCanvas({
       onPointerLeave={() => setIsHovered(false)}
     >
       <ambientLight intensity={0.3} />
-      <Environment preset="night" />
       <Skybox />
       <BackgroundEvents />
       <Meteors />
