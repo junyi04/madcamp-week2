@@ -34,10 +34,16 @@ const Sidebar = ({
 
   const normalizeCommitType = (value?: string) => {
     const normalized = value?.trim().toLowerCase() ?? ''
-    if (normalized.startsWith('merge pull request')) return 'PR'
     if (normalized.startsWith('feat')) return 'feat'
     if (normalized.startsWith('fix')) return 'fix'
     if (normalized.startsWith('docs')) return 'docs'
+    if (normalized.startsWith('style')) return 'style'
+    if (normalized.startsWith('test')) return 'test'
+    if (normalized.startsWith('refactor')) return 'refactor'
+    if (normalized.startsWith('perf')) return 'perf'
+    if (normalized.startsWith('chore')) return 'chore'
+    if (normalized.startsWith('build')) return 'build'
+    if (normalized.startsWith('ci')) return 'ci'
     return 'other'
   }
 
@@ -45,6 +51,13 @@ const Sidebar = ({
     feat: 'bg-cyan-300/80',
     fix: 'bg-rose-400/80',
     docs: 'bg-sky-300/80',
+    style: 'bg-sky-300/80',
+    test: 'bg-emerald-300/80',
+    refactor: 'bg-violet-400/80',
+    perf: 'bg-violet-400/80',
+    chore: 'bg-orange-300/90',
+    build: 'bg-orange-300/90',
+    ci: 'bg-orange-300/90',
     other: 'bg-slate-500',
   }
 
@@ -52,6 +65,13 @@ const Sidebar = ({
     feat: 'text-cyan-200/80',
     fix: 'text-rose-200/90',
     docs: 'text-sky-200/90',
+    style: 'text-sky-200/90',
+    test: 'text-emerald-200/90',
+    refactor: 'text-violet-200/90',
+    perf: 'text-violet-200/90',
+    chore: 'text-orange-200/90',
+    build: 'text-orange-200/90',
+    ci: 'text-orange-200/90',
     other: 'text-slate-400',
   }
 
@@ -148,14 +168,18 @@ const Sidebar = ({
                       <div className="mt-3 space-y-3">
                         {selectedCommits.map((item) => {
                           const commitType = normalizeCommitType(item.commit?.type)
+                          
                           const isMerge = isMergePullRequest(item.commit?.message)
                           const dotClass = isMerge
                             ? 'bg-amber-300/90'
                             : commitDotClass[commitType]
+
                           const typeLabel = isMerge ? 'PR' : item.commit?.type
+
                           const typeClass = isMerge
                             ? 'text-amber-200/90'
                             : commitTypeClass[commitType]
+                            
                           return (
                             <div key={item.id} className="flex items-start gap-3">
                               <span

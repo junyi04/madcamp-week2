@@ -61,12 +61,26 @@ const normalizeCommitType = (value?: string) => {
   if (normalized.startsWith('feat')) return 'feat'
   if (normalized.startsWith('fix')) return 'fix'
   if (normalized.startsWith('docs')) return 'docs'
+  if (normalized.startsWith('style')) return 'style'
+  if (normalized.startsWith('test')) return 'test'
+  if (normalized.startsWith('refactor')) return 'refactor'
+  if (normalized.startsWith('perf')) return 'perf'
+  if (normalized.startsWith('chore')) return 'chore'
+  if (normalized.startsWith('build')) return 'build'
+  if (normalized.startsWith('ci')) return 'ci'
   return ''
 }
 
 const commitTypeColors: Record<string, string> = {
   fix: '#f87171',
   docs: '#60a5fa',
+  style: '#60a5fa',
+  test: '#34d399',
+  refactor: '#c084fc',
+  perf: '#c084fc',
+  chore: '#fb923c',
+  build: '#fb923c',
+  ci: '#fb923c',
 }
 
 
