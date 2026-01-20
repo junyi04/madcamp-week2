@@ -46,9 +46,10 @@ export type CameraPose = {
 type RepoGalaxyProps = {
   cameraPoseRef?: MutableRefObject<CameraPose | null>
   active?: boolean
+  commitCount?: number
 }
 
-export default function RepoGalaxy({ cameraPoseRef, active }: RepoGalaxyProps) {
+export default function RepoGalaxy({ cameraPoseRef, active, commitCount }: RepoGalaxyProps) {
   const [hoverLabel, setHoverLabel] = useState<{ name: string; x: number; y: number } | null>(
     null,
   )
@@ -139,13 +140,28 @@ export default function RepoGalaxy({ cameraPoseRef, active }: RepoGalaxyProps) {
 
     const galaxy = new Galaxy(scene)
 
-    const featureStarsData = [
-      { name: 'Aster-01', position: new THREE.Vector3(120, 40, 12), size: 12, color: 0xffe3a0 },
-      { name: 'Helion', position: new THREE.Vector3(-180, 70, -8), size: 12, color: 0xffc3a3 },
-      { name: 'Vega-X', position: new THREE.Vector3(60, -160, 6), size: 12, color: 0xa6d7ff },
-      { name: 'Nova-3', position: new THREE.Vector3(-90, -40, 18), size: 12, color: 0xffffff },
-      { name: 'Orionis', position: new THREE.Vector3(0, 220, -5), size: 12, color: 0xb0d4ff },
-    ]
+    // 커밋 개수만큼 feature star 생성 : 50개 이상이면 스케일 적용
+    const rawCommitCount = Math.max(0, Math.floor(commitCount ?? 0))
+    const featureStarCount =
+      rawCommitCount < 30
+        ? rawCommitCount
+        : Math.min(400, Math.floor(rawCommitCount * 0.2))
+    const featureStarsData = Array.from({ length: featureStarCount }, (_, index) => {
+      const position = new THREE.Vector3(
+        (Math.random() - 0.5) * 420,
+        (Math.random() - 0.5) * 420,
+        (Math.random() - 0.5) * 80,
+      )
+      const color = new THREE.Color().setHSL(Math.random(), 0.75, 0.7).getHex()
+      const size = 8 + Math.random() * 10
+      return {
+        name: `Commit-${index + 1}`,
+        position,
+        size,
+        color,
+      }
+    })
+
     const featureStars = featureStarsData.map((entry) => {
       const star = new FeatureStar(entry.position, {
         name: entry.name,
@@ -276,7 +292,7 @@ export default function RepoGalaxy({ cameraPoseRef, active }: RepoGalaxyProps) {
       })
       renderer.dispose()
     }
-  }, [cameraPoseRef])
+  }, [cameraPoseRef, commitCount])
 
   useEffect(() => {
     if (!active) {
