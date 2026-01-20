@@ -1,7 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
 import type { AuthState, GalaxyResponse, SummaryResponse } from '../types/universe'
 
-export const useGalaxyData = (auth: AuthState | null, apiBaseUrl: string) => {
+export const useGalaxyData = (
+  auth: AuthState | null,
+  apiBaseUrl: string,
+  selectedUserId: number | null,
+) => {
   const [summary, setSummary] = useState<SummaryResponse | null>(null)
   const [selectedRepoId, setSelectedRepoId] = useState<number | null>(null)
   const [galaxy, setGalaxy] = useState<GalaxyResponse | null>(null)
@@ -10,13 +14,20 @@ export const useGalaxyData = (auth: AuthState | null, apiBaseUrl: string) => {
   const lastSyncedRepoRef = useRef<number | null>(null)
   const backgroundSyncedReposRef = useRef<Set<number>>(new Set())
   const backgroundSyncInFlightRef = useRef<Set<number>>(new Set())
+  const initialBackgroundSyncPendingRef = useRef(false)
+  const prevAuthRef = useRef<AuthState | null>(null)
   const summaryRefreshTimeoutRef = useRef<number | null>(null)
   const summaryRefreshQueueRef = useRef(0)
   const summaryRefreshInFlightRef = useRef(false)
+  const isViewingFriend = selectedUserId != null
 
   const fetchSummary = async (withSync: boolean) => {
     if (!auth) {
       return
+    }
+
+    if (isViewingFriend) {
+      withSync = false
     }
 
     if (withSync) {
@@ -31,14 +42,29 @@ export const useGalaxyData = (auth: AuthState | null, apiBaseUrl: string) => {
     }
 
     try {
-      const response = await fetch(`${apiBaseUrl}/universe/me/summary`, {
+      const summaryUrl = isViewingFriend
+        ? `${apiBaseUrl}/universe/users/${selectedUserId}/summary`
+        : `${apiBaseUrl}/universe/me/summary`
+      const response = await fetch(summaryUrl, {
         headers: { Authorization: `Bearer ${auth.appToken}` },
       })
       if (!response.ok) {
+        if (isViewingFriend && (response.status === 403 || response.status === 404)) {
+          setSummary(null)
+          setGalaxy(null)
+          setSelectedRepoId(null)
+          setMessage(
+            response.status === 403
+              ? 'Friend universe is private.'
+              : 'Friend universe not found.',
+          )
+          return
+        }
         throw new Error('Failed to load summary.')
       }
       const data = (await response.json()) as SummaryResponse
       setSummary(data)
+      setMessage('')
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'Summary fetch failed.')
     } finally {
@@ -71,6 +97,20 @@ export const useGalaxyData = (auth: AuthState | null, apiBaseUrl: string) => {
     }, 600)
   }
 
+  useEffect(() => {
+    if (!auth) {
+      prevAuthRef.current = null
+      initialBackgroundSyncPendingRef.current = false
+      return
+    }
+
+    if (!prevAuthRef.current) {
+      initialBackgroundSyncPendingRef.current = true
+    }
+
+    prevAuthRef.current = auth
+  }, [auth])
+
 
   useEffect(() => {
     if (!auth) {
@@ -85,11 +125,12 @@ export const useGalaxyData = (auth: AuthState | null, apiBaseUrl: string) => {
       }
       summaryRefreshQueueRef.current = 0
       summaryRefreshInFlightRef.current = false
+      initialBackgroundSyncPendingRef.current = false
       return
     }
 
     void fetchSummary(true)
-  }, [apiBaseUrl, auth])
+  }, [apiBaseUrl, auth, selectedUserId])
 
   useEffect(() => {
     if (!auth) {
@@ -103,7 +144,7 @@ export const useGalaxyData = (auth: AuthState | null, apiBaseUrl: string) => {
     return () => {
       window.clearInterval(intervalId)
     }
-  }, [apiBaseUrl, auth])
+  }, [apiBaseUrl, auth, selectedUserId])
 
   useEffect(() => {
     if (!auth || !summary) {
@@ -116,17 +157,29 @@ export const useGalaxyData = (auth: AuthState | null, apiBaseUrl: string) => {
       setSyncing(true)
       try {
         const responses = await Promise.all(
-          summary.galaxies.map((repo) =>
-            fetch(`${apiBaseUrl}/universe/me/galaxies/${repo.repoId}?types=commit,pr`, {
+          summary.galaxies.map((repo) => {
+            const url = isViewingFriend
+              ? `${apiBaseUrl}/universe/users/${selectedUserId}/galaxies/${repo.repoId}?types=commit,pr`
+              : `${apiBaseUrl}/universe/me/galaxies/${repo.repoId}?types=commit,pr`
+            return fetch(url, {
               headers: { Authorization: `Bearer ${auth.appToken}` },
-            }),
-          ),
+            })
+          }),
         )
         if (cancelled) {
           return
         }
         const failed = responses.find((res) => !res.ok)
         if (failed) {
+          if (isViewingFriend && (failed.status === 403 || failed.status === 404)) {
+            setGalaxy(null)
+            setMessage(
+              failed.status === 403
+                ? 'Friend universe is private.'
+                : 'Friend universe not found.',
+            )
+            return
+          }
           throw new Error('Failed to load galaxies.')
         }
         const galaxies = (await Promise.all(
@@ -151,6 +204,7 @@ export const useGalaxyData = (auth: AuthState | null, apiBaseUrl: string) => {
           celestialObjects: merged,
           counts,
         })
+        setMessage('')
       } catch (error) {
         if (!cancelled) {
           setMessage(error instanceof Error ? error.message : 'Galaxy fetch failed.')
@@ -169,7 +223,7 @@ export const useGalaxyData = (auth: AuthState | null, apiBaseUrl: string) => {
       }
 
       setSyncing(true)
-      if (lastSyncedRepoRef.current !== repoId) {
+      if (!isViewingFriend && lastSyncedRepoRef.current !== repoId) {
         lastSyncedRepoRef.current = repoId
         try {
           const syncResponse = await fetch(
@@ -194,16 +248,25 @@ export const useGalaxyData = (auth: AuthState | null, apiBaseUrl: string) => {
       }
 
       try {
-        const response = await fetch(
-          `${apiBaseUrl}/universe/me/galaxies/${repo.repoId}?types=commit,pr`,
-          {
-            headers: { Authorization: `Bearer ${auth.appToken}` },
-          },
-        )
+        const galaxyUrl = isViewingFriend
+          ? `${apiBaseUrl}/universe/users/${selectedUserId}/galaxies/${repo.repoId}?types=commit,pr`
+          : `${apiBaseUrl}/universe/me/galaxies/${repo.repoId}?types=commit,pr`
+        const response = await fetch(galaxyUrl, {
+          headers: { Authorization: `Bearer ${auth.appToken}` },
+        })
         if (cancelled) {
           return
         }
         if (!response.ok) {
+          if (isViewingFriend && (response.status === 403 || response.status === 404)) {
+            setGalaxy(null)
+            setMessage(
+              response.status === 403
+                ? 'Friend universe is private.'
+                : 'Friend universe not found.',
+            )
+            return
+          }
           throw new Error('Failed to load galaxy.')
         }
         const data = (await response.json()) as GalaxyResponse
@@ -211,6 +274,7 @@ export const useGalaxyData = (auth: AuthState | null, apiBaseUrl: string) => {
           return
         }
         setGalaxy(data)
+        setMessage('')
         setSummary((prev) => {
           if (!prev) {
             return prev
@@ -246,10 +310,15 @@ export const useGalaxyData = (auth: AuthState | null, apiBaseUrl: string) => {
     return () => {
       cancelled = true
     }
-  }, [apiBaseUrl, auth, summary, selectedRepoId])
+  }, [apiBaseUrl, auth, summary, selectedRepoId, selectedUserId])
 
   useEffect(() => {
-    if (!auth || !summary) {
+    if (
+      !auth ||
+      !summary ||
+      isViewingFriend ||
+      !initialBackgroundSyncPendingRef.current
+    ) {
       return
     }
 
@@ -268,6 +337,9 @@ export const useGalaxyData = (auth: AuthState | null, apiBaseUrl: string) => {
       return undefined
     }
 
+    initialBackgroundSyncPendingRef.current = false
+    let didSync = false
+
     const queue = [...repoIds]
     const concurrency = 3
 
@@ -283,14 +355,14 @@ export const useGalaxyData = (auth: AuthState | null, apiBaseUrl: string) => {
         )
         if (response.status === 409) {
           backgroundSyncedReposRef.current.add(repoId)
-          scheduleSummaryRefresh(2)
+          didSync = true
           return
         }
         if (!response.ok) {
           throw new Error('Failed to sync commits.')
         }
         backgroundSyncedReposRef.current.add(repoId)
-        scheduleSummaryRefresh(2)
+        didSync = true
       } catch (error) {
         if (!cancelled) {
           setMessage(error instanceof Error ? error.message : 'Commit sync failed.')
@@ -310,14 +382,21 @@ export const useGalaxyData = (auth: AuthState | null, apiBaseUrl: string) => {
       }
     }
 
-    void Promise.all(
-      Array.from({ length: Math.min(concurrency, queue.length) }, () => runWorker()),
-    )
+    const runQueue = async () => {
+      await Promise.all(
+        Array.from({ length: Math.min(concurrency, queue.length) }, () => runWorker()),
+      )
+      if (!cancelled && didSync) {
+        scheduleSummaryRefresh(2)
+      }
+    }
+
+    void runQueue()
 
     return () => {
       cancelled = true
     }
-  }, [apiBaseUrl, auth, summary, selectedRepoId])
+  }, [apiBaseUrl, auth, summary, selectedRepoId, selectedUserId])
 
   return {
     summary,

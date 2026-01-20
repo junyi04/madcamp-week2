@@ -12,20 +12,39 @@ import UniverseCanvas from '../components/UniverseCanvas'
 const FOCUS_TRANSITION_MS = 1500  // 전환 지연 시간 조정
 
 const GalaxyPage = () => {
-  const { auth, status, message, setMessage, apiBaseUrl, handleGithubLogin, handleLogout } =
-    useAuth()
+  const {
+    auth,
+    status,
+    message: authMessage,
+    setMessage: setAuthMessage,
+    apiBaseUrl,
+    handleGithubLogin,
+    handleLogout,
+  } = useAuth()
   const [sidebarOpen, setSidebarOpen] = useState(true)
+  const [selectedUserId, setSelectedUserId] = useState<number | null>(null)
   const [focusRepoId, setFocusRepoId] = useState<number | null>(null)
   const [exitRepoId, setExitRepoId] = useState<number | null>(null)
   const focusTimerRef = useRef<number | null>(null)
-  const { summary, selectedRepoId, setSelectedRepoId, galaxy, syncing } = useGalaxyData(
+  const {
+    summary,
+    selectedRepoId,
+    setSelectedRepoId,
+    galaxy,
+    syncing,
+    message: galaxyMessage,
+    setMessage: setGalaxyMessage,
+  } = useGalaxyData(
     auth,
     apiBaseUrl,
+    selectedUserId,
   )
   const friendPanel = useFriends(auth, apiBaseUrl)
 
+  const bannerMessage = galaxyMessage || authMessage
+
   if (!auth) {
-    return <AuthGate status={status} message={message} onLogin={handleGithubLogin} />
+    return <AuthGate status={status} message={authMessage} onLogin={handleGithubLogin} />
   }
 
   useEffect(() => {
@@ -33,6 +52,13 @@ const GalaxyPage = () => {
       clearFocusTimer()
     }
   }, [])
+
+  useEffect(() => {
+    clearFocusTimer()
+    setFocusRepoId(null)
+    setExitRepoId(null)
+    setSelectedRepoId(null)
+  }, [selectedUserId])
 
 
   const selectedRepo =
@@ -59,6 +85,10 @@ const GalaxyPage = () => {
       setFocusRepoId(null)
       focusTimerRef.current = null
     }, FOCUS_TRANSITION_MS)
+  }
+
+  const handleSelectUser = (userId: number | null) => {
+    setSelectedUserId(userId)
   }
 
   
@@ -98,7 +128,8 @@ const GalaxyPage = () => {
               }}
               onLogout={() => {
                 handleLogout()
-                setMessage('')
+                setAuthMessage('')
+                setGalaxyMessage('')
               }}
               friendPanel={{
                 friends: friendPanel.friends,
@@ -108,6 +139,8 @@ const GalaxyPage = () => {
                 searchQuery: friendPanel.searchQuery,
                 loading: friendPanel.loading,
                 error: friendPanel.error,
+                selectedFriendId: selectedUserId,
+                onSelectFriend: handleSelectUser,
                 onSearch: friendPanel.searchUsers,
                 onSendRequest: friendPanel.sendRequest,
                 onAccept: friendPanel.acceptRequest,
@@ -160,9 +193,9 @@ const GalaxyPage = () => {
             subtitle={starCount ? `${starCount} stars rendered` : 'No stars yet'}
           />
 
-          {message && (
+          {bannerMessage && (
             <div className="absolute bottom-6 left-6 z-10 rounded-xl border border-amber-200/30 bg-amber-200/10 px-3 py-2 text-xs text-amber-100">
-              {message}
+              {bannerMessage}
             </div>
           )}
         </section>
