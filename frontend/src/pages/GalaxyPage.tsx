@@ -24,6 +24,12 @@ const GalaxyPage = () => {
   )
   const friendPanel = useFriends(auth, apiBaseUrl)
 
+  useEffect(() => {
+    return () => {
+      clearFocusTimer()
+    }
+  }, [])
+
   if (!auth) {
     return <AuthGate status={status} message={message} onLogin={handleGithubLogin} />
   }
@@ -35,7 +41,8 @@ const GalaxyPage = () => {
   const showRepoGalaxy = selectedRepoId != null
   const showUniverseLayer = !showRepoGalaxy
   const showRepoLayer = showRepoGalaxy
-  const clearFocusTimer = () => {
+
+  function clearFocusTimer() {
     if (focusTimerRef.current != null) {
       window.clearTimeout(focusTimerRef.current)
       focusTimerRef.current = null
@@ -53,12 +60,6 @@ const GalaxyPage = () => {
       focusTimerRef.current = null
     }, FOCUS_TRANSITION_MS)
   }
-
-  useEffect(() => {
-    return () => {
-      clearFocusTimer()
-    }
-  }, [])
 
   return (
     <main className="h-screen overflow-hidden bg-[radial-gradient(circle_at_15%_10%,_rgba(56,189,248,0.16),_transparent_55%),radial-gradient(circle_at_80%_0%,_rgba(16,185,129,0.16),_transparent_50%),radial-gradient(circle_at_50%_85%,_rgba(250,204,21,0.1),_transparent_50%),linear-gradient(180deg,_#03050c,_#0b1525_60%,_#02040a)] text-slate-100">
