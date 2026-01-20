@@ -16,7 +16,6 @@ const Sidebar = ({
   summary,
   galaxy,
   selectedRepoId,
-  syncing,
   onSelectRepo,
   onLogout,
   friendPanel,
@@ -45,9 +44,9 @@ const Sidebar = ({
     <div className="flex items-center justify-between">
       <div>
         <p className="text-xs uppercase tracking-[0.35em] text-cyan-300/80">
-          Universe
+          Code Galaxy
         </p>
-        <h2 className="mt-2 text-xl font-semibold">Constellation Map</h2>
+        <h2 className="mt-2 text-xl font-semibold">Universe Map</h2>
       </div>
       <button
         type="button"
@@ -75,7 +74,7 @@ const Sidebar = ({
         </div>
       </div>
       <p className="mt-3 text-xs text-slate-500">
-        Select a repository to focus its constellation.
+        Select a repository to focus on its galaxy.
       </p>
     </div>
 

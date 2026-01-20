@@ -163,7 +163,7 @@ const FriendPanel = ({
               <button
                 type="button"
                 onClick={() => onSelectFriend(null)}
-                className={`flex w-full items-center justify-between rounded-lg border px-2 py-1 text-left text-xs transition ${
+                className={`flex w-full items-center justify-between rounded-lg border px-2 py-2 text-left text-xs transition ${
                   selectedFriendId === null
                     ? 'border-cyan-300/60 bg-cyan-300/10 text-cyan-100'
                     : 'border-white/5 bg-black/30 text-slate-200 hover:border-white/30'

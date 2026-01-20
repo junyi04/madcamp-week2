@@ -192,7 +192,7 @@ export default function IntroCameraRig({
       enableDamping
       dampingFactor={0.08}
       minDistance={8}
-      maxDistance={28}
+      maxDistance={32}
       zoomSpeed={0.9}
       autoRotate={autoRotate}
       autoRotateSpeed={AUTO_ROTATE_SPEED}
