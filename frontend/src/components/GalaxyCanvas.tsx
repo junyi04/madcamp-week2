@@ -56,8 +56,14 @@ type GalaxyCanvasProps = {
   tintColor?: string | null
 }
 
-const normalizeCommitType = (value?: string) => {
-  const normalized = value?.trim().toLowerCase() ?? ''
+const normalizeCommitType = (type?: string, message?: string) => {
+  const normalizedType = type?.trim().toLowerCase() ?? ''
+  const normalizedMessage = message?.trim().toLowerCase() ?? ''
+  const prefixMatch = normalizedMessage.match(/^\s*([a-z]+)(?:\([^)]+\))?:/)
+  const keywordMatch = normalizedMessage.match(
+    /\b(feat|fix|docs|style|test|refactor|perf|chore|build|ci)\b/,
+  )
+  const normalized = prefixMatch?.[1] || normalizedType || keywordMatch?.[1] || ''
   if (normalized.startsWith('feat')) return 'feat'
   if (normalized.startsWith('fix')) return 'fix'
   if (normalized.startsWith('docs')) return 'docs'
@@ -224,7 +230,9 @@ const GalaxyCanvas = ({ stars, tintColor }: GalaxyCanvasProps) => {
       dummy.updateMatrix()
       mesh.setMatrixAt(index, dummy.matrix)
       const commitType =
-        star.type === 'COMMIT' ? normalizeCommitType(star.commit?.type) : ''
+        star.type === 'COMMIT'
+          ? normalizeCommitType(star.commit?.type, star.commit?.message)
+          : ''
       const commitColor = commitType ? commitTypeColors[commitType] : undefined
       const resolvedColor = tintColor ?? commitColor ?? star.color ?? '#ffffff'
       color.set(resolvedColor)

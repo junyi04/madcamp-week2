@@ -2,9 +2,7 @@ import { Canvas } from "@react-three/fiber";
 import { Environment } from "@react-three/drei";
 import { useEffect, useMemo, useState } from "react";
 import GalaxyCluster from "./GalaxyCluster";
-import BackgroundStars from "./scene/BackgroundStars";
 import BackgroundEvents from "./scene/BackgroundEvents";
-import BackgroundNebula from "./scene/BackgroundNebula";
 import IntroCameraRig from "./scene/IntroCameraRig";
 import Meteors from "./scene/Meteors";
 import { hashStringToSeed, mulberry32, randRange } from "../utils/seed";
@@ -35,6 +33,7 @@ type ClusterState = {
   scale: number;
   phase: ClusterPhase;
   rotation: [number, number, number];
+  rotationSpeed: number;
   phaseStartedAt: number;
 };
 
@@ -55,8 +54,8 @@ export default function UniverseCanvas({
   const [clusters, setClusters] = useState<ClusterState[]>([]);
 
   const placements = useMemo(() => {
-    const RMAX = repos.length+5;        // 은하 퍼점 반경
-    const YSPREAD = repos.length+5;   // 은하 수직 범위
+    const RMAX = 15;        // 은하 퍼점 반경
+    const YSPREAD = 10.0;   // 은하 수직 범위
 
     const count = Math.max(repos.length, 1);
     const goldenAngle = Math.PI * (3 - Math.sqrt(5));
@@ -76,7 +75,8 @@ export default function UniverseCanvas({
       const z = Math.sin(theta) * radius;
       const y = (r() - 0.5) * YSPREAD;
 
-      const scale = randRange(r, 0.8, 1.6);
+      const scale = randRange(r, 0.7, 1.4);
+      const rotationSpeed = randRange(r, -0.25, 0.25) * 0.5;
 
       return {
         id: repoId,
@@ -90,6 +90,7 @@ export default function UniverseCanvas({
           randRange(r, 0, Math.PI * 2),
           randRange(r, 0, Math.PI * 2),
         ] as [number, number, number],
+        rotationSpeed,
       };
     });
   }, [repos]);
@@ -204,7 +205,7 @@ export default function UniverseCanvas({
   return (
     <Canvas
       className="absolute inset-0 z-0"
-      camera={{ position: [0, 6, 18], fov: 50, near: 0.1, far: 200 }}
+      camera={{ position: [0, 7, 24], fov: 48, near: 0.1, far: 200 }}
       gl={{ antialias: true }}
       onPointerEnter={() => setIsHovered(true)}
       onPointerLeave={() => setIsHovered(false)}
@@ -227,6 +228,7 @@ export default function UniverseCanvas({
             position={p.position}
             scale={p.scale}
             rotation={p.rotation}
+            rotationSpeed={p.rotationSpeed}
             commitCount={p.commitCount}
             label={p.label}
             showLabel={hoveredId === p.id}

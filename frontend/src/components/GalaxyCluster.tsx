@@ -1,7 +1,7 @@
 // src/components/GalaxyCluster.tsx
 import { Billboard, Html } from "@react-three/drei";
-import type { ThreeEvent } from "@react-three/fiber";
-import { useMemo } from "react";
+import { useFrame, type ThreeEvent } from "@react-three/fiber";
+import { useMemo, useRef } from "react";
 import * as THREE from "three";
 import { hashStringToSeed, mulberry32, randRange } from "../utils/seed";
 
@@ -11,6 +11,7 @@ type GalaxyClusterProps = {
   commitCount: number;
   scale?: number;
   rotation?: [number, number, number];
+  rotationSpeed?: number;
   label?: string;
   showLabel?: boolean;
   hitRadius?: number;
@@ -28,6 +29,7 @@ export default function GalaxyCluster(props: GalaxyClusterProps) {
     commitCount,
     scale = 1,
     rotation,
+    rotationSpeed = 0,
     label,
     showLabel,
     hitRadius = 0,
@@ -122,9 +124,16 @@ export default function GalaxyCluster(props: GalaxyClusterProps) {
   }, [id]);
 
   const useHitArea = hitRadius > 0;
+  const groupRef = useRef<THREE.Group | null>(null);
+
+  useFrame((_, delta) => {
+    if (groupRef.current && rotationSpeed !== 0) {
+      groupRef.current.rotation.y += rotationSpeed * delta;
+    }
+  });
 
   return (
-    <group position={position} scale={scale} rotation={rotation}>
+    <group ref={groupRef} position={position} scale={scale} rotation={rotation}>
       <points
         geometry={geometry}
         material={material}
