@@ -229,6 +229,7 @@ export default function UniverseCanvas({
             rotation={p.rotation}
             commitCount={p.commitCount}
             label={p.label}
+            showLabel={hoveredId === p.id}
             hitRadius={isFocused ? 5.5 * p.scale : 0}
             phase={p.phase}
             phaseStartedAt={p.phaseStartedAt}
