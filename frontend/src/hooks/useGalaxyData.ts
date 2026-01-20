@@ -13,15 +13,11 @@ export const useGalaxyData = (
   const [viewLoading, setViewLoading] = useState(false)
   const [message, setMessage] = useState('')
   const lastSyncedRepoRef = useRef<number | null>(null)
-  const backgroundSyncedReposRef = useRef<Set<number>>(new Set())
   const backgroundSyncInFlightRef = useRef<Set<number>>(new Set())
   const initialBackgroundSyncPendingRef = useRef(false)
   const prevAuthRef = useRef<AuthState | null>(null)
   const viewLoadingStartedAtRef = useRef<number | null>(null)
   const viewLoadingTimeoutRef = useRef<number | null>(null)
-  const summaryRefreshTimeoutRef = useRef<number | null>(null)
-  const summaryRefreshQueueRef = useRef(0)
-  const summaryRefreshInFlightRef = useRef(false)
   const isViewingFriend = selectedUserId != null
   const VIEW_LOADING_MIN_MS = 2000
 

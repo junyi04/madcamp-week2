@@ -36,8 +36,8 @@ const Sidebar = ({
   const selectedCommits =
     selectedRepoId && galaxy?.repoId === selectedRepoId
       ? galaxy.celestialObjects
-          .filter((item) => item.type === 'COMMIT' && item.commit?.message)
-          .slice(0, 30)
+          .filter((item) => item.type === 'COMMIT' && item.commit?.message).reverse()
+          .slice(0, 10)
       : []
 
   return (
