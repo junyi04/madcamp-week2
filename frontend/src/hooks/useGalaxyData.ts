@@ -14,6 +14,7 @@ export const useGalaxyData = (
   const [message, setMessage] = useState('')
   const lastSyncedRepoRef = useRef<number | null>(null)
   const lastAggregateKeyRef = useRef<string | null>(null)
+  const summaryOwnerRef = useRef<string | null>(null)
   const backgroundSyncInFlightRef = useRef<Set<number>>(new Set())
   const initialBackgroundSyncPendingRef = useRef(false)
   const prevAuthRef = useRef<AuthState | null>(null)
@@ -21,6 +22,7 @@ export const useGalaxyData = (
   const viewLoadingTimeoutRef = useRef<number | null>(null)
   const isViewingFriend = selectedUserId != null
   const VIEW_LOADING_MIN_MS = 2000
+  const currentViewKey = selectedUserId == null ? 'me' : String(selectedUserId)
 
   const beginViewLoading = () => {
     if (viewLoadingTimeoutRef.current != null) {
@@ -105,6 +107,7 @@ export const useGalaxyData = (
       const data = (await response.json()) as SummaryResponse
       setSummary(data)
       setMessage('')
+      summaryOwnerRef.current = currentViewKey
       summaryOk = true
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'Summary fetch failed.')
@@ -146,6 +149,7 @@ export const useGalaxyData = (
       prevAuthRef.current = null
       initialBackgroundSyncPendingRef.current = false
       lastAggregateKeyRef.current = null
+      summaryOwnerRef.current = null
       viewLoadingStartedAtRef.current = null
       if (viewLoadingTimeoutRef.current != null) {
         window.clearTimeout(viewLoadingTimeoutRef.current)
@@ -174,6 +178,7 @@ export const useGalaxyData = (
     setGalaxy(null)
     setMessage('')
     lastAggregateKeyRef.current = null
+    summaryOwnerRef.current = null
   }, [auth, selectedUserId])
 
   useEffect(() => {
@@ -183,6 +188,7 @@ export const useGalaxyData = (
       setSelectedRepoId(null)
       lastSyncedRepoRef.current = null
       lastAggregateKeyRef.current = null
+      summaryOwnerRef.current = null
       backgroundSyncedReposRef.current.clear()
       if (summaryRefreshTimeoutRef.current) {
         window.clearTimeout(summaryRefreshTimeoutRef.current)
@@ -214,6 +220,10 @@ export const useGalaxyData = (
 
   useEffect(() => {
     if (!auth || !summary) {
+      return
+    }
+
+    if (summaryOwnerRef.current !== currentViewKey) {
       return
     }
 
@@ -289,6 +299,7 @@ export const useGalaxyData = (
     const loadSingleGalaxy = async (repoId: number) => {
       const repo = summary.galaxies.find((item) => item.repoId === repoId)
       if (!repo) {
+        finishViewLoading()
         return
       }
 
@@ -379,6 +390,8 @@ export const useGalaxyData = (
       if (lastAggregateKeyRef.current !== summaryKey) {
         lastAggregateKeyRef.current = summaryKey
         void loadAggregateGalaxy()
+      } else {
+        finishViewLoading()
       }
     } else {
       lastAggregateKeyRef.current = null
@@ -388,7 +401,7 @@ export const useGalaxyData = (
     return () => {
       cancelled = true
     }
-  }, [apiBaseUrl, auth, summary, selectedRepoId, selectedUserId])
+  }, [apiBaseUrl, auth, summary, selectedRepoId, selectedUserId, currentViewKey])
 
   useEffect(() => {
     if (

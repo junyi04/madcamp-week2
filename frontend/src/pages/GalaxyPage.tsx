@@ -170,16 +170,15 @@ const GalaxyPage = () => {
           )}
 
           <div
-            className={`absolute inset-0 transition-opacity duration-[420ms] ease-in-out ${
-              showUniverseLayer ? 'opacity-100' : 'opacity-0'
-            } ${showUniverseLayer ? 'pointer-events-auto' : 'pointer-events-none'}`}
+            className={`absolute inset-0 transition-opacity duration-[420ms] ease-in-out ${showUniverseLayer ? 'opacity-100' : 'opacity-0'
+              } ${showUniverseLayer ? 'pointer-events-auto' : 'pointer-events-none'}`}
           >
             <UniverseCanvas
               repos={summary?.galaxies ?? []}
               selectedRepoId={selectedRepoId}
               focusRepoId={focusRepoId}
               exitRepoId={exitRepoId}
-              onSelectRepo={() => {}}
+              onSelectRepo={() => { }}
             />
 
             <div className="relative z-10 h-full">
@@ -188,9 +187,8 @@ const GalaxyPage = () => {
           </div>
 
           <div
-            className={`absolute inset-0 transition-opacity duration-[420ms] ease-in-out ${
-              showRepoLayer ? 'opacity-100' : 'opacity-0'
-            } ${showRepoLayer ? 'pointer-events-auto' : 'pointer-events-none'}`}
+            className={`absolute inset-0 transition-opacity duration-[420ms] ease-in-out ${showRepoLayer ? 'opacity-100' : 'opacity-0'
+              } ${showRepoLayer ? 'pointer-events-auto' : 'pointer-events-none'}`}
           >
             <div className="relative z-10 h-full">
               <RepoGalaxy
@@ -201,10 +199,12 @@ const GalaxyPage = () => {
             </div>
           </div>
 
-          <TopStatus
-            title={title}
-            subtitle={starCount ? `${starCount} stars rendered` : 'No stars yet'}
-          />
+          <div className='absolute top-5 right-2 w-full'>
+            <TopStatus
+              title={title}
+              subtitle={starCount ? `${starCount} stars rendered` : 'No stars yet'}
+            />
+          </div>
 
           {bannerMessage && (
             <div className="absolute bottom-6 left-6 z-10 rounded-xl border border-amber-200/30 bg-amber-200/10 px-3 py-2 text-xs text-amber-100">
