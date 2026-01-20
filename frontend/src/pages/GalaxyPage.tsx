@@ -21,7 +21,13 @@ const GalaxyPage = () => {
     handleGithubLogin,
     handleLogout,
   } = useAuth()
-  const [sidebarOpen, setSidebarOpen] = useState(true)
+  
+  // PC 폭 따라 사이드바 OC 여부
+  const [sidebarOpen, setSidebarOpen] = useState(() => {
+    if (typeof window === 'undefined') return true
+    return window.innerWidth >= 1024
+  })
+
   const [selectedUserId, setSelectedUserId] = useState<number | null>(null)
   const [focusRepoId, setFocusRepoId] = useState<number | null>(null)
   const [exitRepoId, setExitRepoId] = useState<number | null>(null)
@@ -57,6 +63,18 @@ const GalaxyPage = () => {
     setSelectedRepoId(null)
   }, [selectedUserId])
 
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth < 1024) {
+        setSidebarOpen(false)
+      } else {
+        setSidebarOpen(true)
+      }
+    }
+
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [])
 
   const selectedRepo =
     summary?.galaxies.find((repo) => repo.repoId === selectedRepoId) ?? null
@@ -96,8 +114,8 @@ const GalaxyPage = () => {
   return (
     <main className="h-screen overflow-hidden bg-[radial-gradient(circle_at_15%_10%,_rgba(56,189,248,0.16),_transparent_55%),radial-gradient(circle_at_80%_0%,_rgba(16,185,129,0.16),_transparent_50%),radial-gradient(circle_at_50%_85%,_rgba(250,204,21,0.1),_transparent_50%),linear-gradient(180deg,_#03050c,_#0b1525_60%,_#02040a)] text-slate-100">
       <div
-        className={`grid h-full grid-cols-1 ${
-          sidebarOpen ? 'lg:grid-cols-[320px_1fr]' : 'lg:grid-cols-1'
+        className={`grid h-full ${
+          sidebarOpen ? 'grid-cols-[320px_minmax(0,1fr)]' : 'grid-cols-1'
         }`}
       >
         {sidebarOpen && (

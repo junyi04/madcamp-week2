@@ -16,7 +16,6 @@ const Sidebar = ({
   summary,
   galaxy,
   selectedRepoId,
-  syncing,
   onSelectRepo,
   onLogout,
   friendPanel,
@@ -41,7 +40,7 @@ const Sidebar = ({
       : []
 
   return (
-    <aside className="border-b border-white/5 bg-black/30 p-6 lg:border-b-0 lg:border-r lg:border-white/10">
+    <aside className="h-full min-h-screen border-b border-white/5 bg-black/30 p-6 lg:border-b-0 lg:border-r lg:border-white/10">
     <div className="flex items-center justify-between">
       <div>
         <p className="text-xs uppercase tracking-[0.35em] text-cyan-300/80">
