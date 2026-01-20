@@ -149,7 +149,11 @@ const GalaxyPage = () => {
             } ${showRepoLayer ? 'pointer-events-auto' : 'pointer-events-none'}`}
           >
             <div className="relative z-10 h-full">
-              <RepoGalaxy active={showRepoLayer} commitCount={selectedRepo?.commitCount} />
+              <RepoGalaxy
+                active={showRepoLayer}
+                commitCount={selectedRepo?.commitCount}
+                seedKey={selectedRepo?.repoId ?? selectedRepo?.name}
+              />
             </div>
           </div>
 

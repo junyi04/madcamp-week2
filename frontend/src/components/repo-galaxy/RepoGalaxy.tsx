@@ -2,6 +2,14 @@ import { useEffect, useRef, useState, type CSSProperties, type MutableRefObject 
 import * as THREE from 'three'
 
 import { CompositionShader } from '../../shaders/CompositionShader'
+import {
+  ARMS,
+  ARM_X_DIST,
+  ARM_X_MEAN,
+  ARM_Y_DIST,
+  ARM_Y_MEAN,
+  GALAXY_THICKNESS,
+} from '../../config/galaxyConfig'
 import { BASE_LAYER, BLOOM_LAYER, BLOOM_PARAMS, OVERLAY_LAYER } from '../../config/renderConfig'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js'
@@ -10,6 +18,8 @@ import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPa
 import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js'
 import { Galaxy } from './objects/galaxy'
 import { FeatureStar } from './objects/featureStar'
+import { spiral } from './utils'
+import { hashStringToSeed, mulberry32, randRange } from '../../utils/seed'
 
 const rootStyle: CSSProperties = {
   width: '100%',
@@ -47,9 +57,15 @@ type RepoGalaxyProps = {
   cameraPoseRef?: MutableRefObject<CameraPose | null>
   active?: boolean
   commitCount?: number
+  seedKey?: string | number
 }
 
-export default function RepoGalaxy({ cameraPoseRef, active, commitCount }: RepoGalaxyProps) {
+export default function RepoGalaxy({
+  cameraPoseRef,
+  active,
+  commitCount,
+  seedKey,
+}: RepoGalaxyProps) {
   const [hoverLabel, setHoverLabel] = useState<{ name: string; x: number; y: number } | null>(
     null,
   )
@@ -143,17 +159,32 @@ export default function RepoGalaxy({ cameraPoseRef, active, commitCount }: RepoG
     // 커밋 개수만큼 feature star 생성 : 50개 이상이면 스케일 적용
     const rawCommitCount = Math.max(0, Math.floor(commitCount ?? 0))
     const featureStarCount =
-      rawCommitCount < 30
+      rawCommitCount < 50
         ? rawCommitCount
         : Math.min(400, Math.floor(rawCommitCount * 0.2))
+    const seedBasis = String(seedKey ?? 'repo-galaxy')
+    const seededRandom = mulberry32(hashStringToSeed(seedBasis))
+    const thickness = Math.max(8, GALAXY_THICKNESS)
+
+    const gaussianSeeded = (mean = 0, stdev = 1) => {
+      const u = 1 - seededRandom()
+      const v = seededRandom()
+      const z = Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v)
+      return z * stdev + mean
+    }
+
     const featureStarsData = Array.from({ length: featureStarCount }, (_, index) => {
-      const position = new THREE.Vector3(
-        (Math.random() - 0.5) * 420,
-        (Math.random() - 0.5) * 420,
-        (Math.random() - 0.5) * 80,
+      const armIndex = Math.floor(randRange(seededRandom, 0, ARMS))
+      const position = spiral(
+        gaussianSeeded(ARM_X_MEAN, ARM_X_DIST),
+        gaussianSeeded(ARM_Y_MEAN, ARM_Y_DIST),
+        gaussianSeeded(0, thickness),
+        (armIndex * 2 * Math.PI) / ARMS,
       )
-      const color = new THREE.Color().setHSL(Math.random(), 0.75, 0.7).getHex()
-      const size = 8 + Math.random() * 10
+      const color = new THREE.Color()
+        .setHSL(randRange(seededRandom, 0.05, 0.15), 0.8, 0.65)
+        .getHex()
+      const size = randRange(seededRandom, 7, 14) // star size
       return {
         name: `Commit-${index + 1}`,
         position,
@@ -292,7 +323,7 @@ export default function RepoGalaxy({ cameraPoseRef, active, commitCount }: RepoG
       })
       renderer.dispose()
     }
-  }, [cameraPoseRef, commitCount])
+  }, [cameraPoseRef, commitCount, seedKey])
 
   useEffect(() => {
     if (!active) {
