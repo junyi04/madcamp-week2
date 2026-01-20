@@ -184,11 +184,22 @@ const FriendPanel = ({
                       : 'border-white/5 bg-black/30 text-slate-200 hover:border-white/30'
                   }`}
                 >
-                  <div>
-                    <p>{entry.friend.nickname}</p>
-                    <p className="text-[10px] text-slate-500">
-                      {entry.friend.githubUser?.githubId ?? 'unknown'}
-                    </p>
+                  <div className="flex items-center gap-2">
+                    {entry.friend.githubUser?.avatar ? (
+                      <img
+                        src={entry.friend.githubUser.avatar}
+                        alt={entry.friend.nickname}
+                        className="h-5 w-5 rounded-full"
+                      />
+                    ) : (
+                      <div className="h-5 w-5 rounded-full bg-white/10" />
+                    )}
+                    <div>
+                      <p>{entry.friend.nickname}</p>
+                      <p className="text-[10px] text-slate-500">
+                        {entry.friend.githubUser?.githubId ?? 'unknown'}
+                      </p>
+                    </div>
                   </div>
                   <button
                     type="button"

@@ -272,7 +272,7 @@ export class FriendsService {
                 userId: userId,
                 deletedAt: null,
             },
-            include: {friend: true}
+            include: {friend: {include: {githubUser: true}}}
         })
     }
 
