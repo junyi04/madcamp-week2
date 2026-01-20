@@ -180,7 +180,7 @@ export default class UserService {
     const { accessToken, githubUserId } =
       await this.getGithubAuthForUser(userId);
 
-    const url = "https://api.github.com/user/repos?sort=updated&per_page=100";
+    const url = "https://api.github.com/user/repos?sort=updated&per_page=20";
     const { data } = await this.githubGet<GithubRepoResponse[]>(url, accessToken);
 
     if (!Array.isArray(data) || data.length === 0) {
@@ -197,7 +197,12 @@ export default class UserService {
       if (!coords) continue;
 
       await this.prisma.repository.upsert({
-        where: { repoId: BigInt(repo.id) },
+        where: {
+          repoId_userId: {
+            repoId: BigInt(repo.id),
+            userId: githubUserId,
+          },
+        },
         update: {
           name: repo.name,
           updatedAt: repo.updated_at,
@@ -322,7 +327,7 @@ export default class UserService {
       }));
     }
 
-    const url = `https://api.github.com/repos/${repository.ownerName}/${repository.name}/commits?per_page=30`;
+    const url = `https://api.github.com/repos/${repository.ownerName}/${repository.name}/commits?per_page=50`;
 
     const { data } = await this.githubGet<GithubCommitResponse[]>(url, accessToken);
 
@@ -347,7 +352,12 @@ export default class UserService {
 
     for (const item of data) {
       const commit = await this.prisma.commit.upsert({
-        where: { sha: item.sha },
+        where: {
+          repoId_sha: {
+            repoId: repository.id,
+            sha: item.sha,
+          },
+        },
         update: {
           message: item.commit.message,
           date: item.commit.author.date,

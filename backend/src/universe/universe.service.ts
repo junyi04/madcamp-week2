@@ -80,8 +80,8 @@ export class UniverseService {
       (await this.prisma.repository.findUnique({
         where: { id: repoId },
       })) ||
-      (await this.prisma.repository.findUnique({
-        where: { repoId: BigInt(repoId) },
+      (await this.prisma.repository.findFirst({
+        where: { repoId: BigInt(repoId), userId: githubUserId },
       }));
 
     if (!repository || repository.userId !== githubUserId) {

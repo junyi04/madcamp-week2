@@ -79,7 +79,7 @@ model GithubUser {
 
 model Repository {
   id           Int      @id @default(autoincrement())
-  repoId       BigInt   @unique
+  repoId       BigInt
   name         String   
   updatedAt    String   
   createdAt    DateTime @default(now())
@@ -95,17 +95,21 @@ model Repository {
 
   commits      Commit[] 
   stars        Star[]
+
+  @@unique([repoId, userId])
 }
 
 model Commit {
   id           Int        @id @default(autoincrement())
-  sha          String     @unique 
+  sha          String
   message      String
   date         String     
   repoId       Int
   repository   Repository @relation(fields: [repoId], references: [id])
 
   stars        Star[]
+
+  @@unique([repoId, sha])
 }
 
 model Star {
