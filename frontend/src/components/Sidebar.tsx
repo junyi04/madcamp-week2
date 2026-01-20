@@ -32,8 +32,14 @@ const Sidebar = ({
     }).format(parsed)
   }
 
-  const normalizeCommitType = (value?: string) => {
-    const normalized = value?.trim().toLowerCase() ?? ''
+  const normalizeCommitType = (type?: string, message?: string) => {
+    const normalizedType = type?.trim().toLowerCase() ?? ''
+    const normalizedMessage = message?.trim().toLowerCase() ?? ''
+    const prefixMatch = normalizedMessage.match(/^\s*([a-z]+)(?:\([^)]+\))?:/)
+    const keywordMatch = normalizedMessage.match(
+      /\b(feat|fix|docs|style|test|refactor|perf|chore|build|ci)\b/,
+    )
+    const normalized = prefixMatch?.[1] || normalizedType || keywordMatch?.[1] || ''
     if (normalized.startsWith('feat')) return 'feat'
     if (normalized.startsWith('fix')) return 'fix'
     if (normalized.startsWith('docs')) return 'docs'
@@ -48,13 +54,13 @@ const Sidebar = ({
   }
 
   const commitDotClass: Record<string, string> = {
-    feat: 'bg-cyan-300/80',
-    fix: 'bg-rose-300/60',
-    docs: 'bg-sky-300/60',
-    style: 'bg-sky-300/60',
-    test: 'bg-emerald-300/60',
-    refactor: 'bg-violet-300/60',
-    perf: 'bg-violet-300/60',
+    feat: 'bg-cyan-300/90',
+    fix: 'bg-rose-300/90',
+    docs: 'bg-sky-500/80',
+    style: 'bg-sky-500/80',
+    test: 'bg-emerald-300/80',
+    refactor: 'bg-violet-300/90',
+    perf: 'bg-violet-900/90',
     chore: 'bg-orange-300/60',
     build: 'bg-orange-300/60',
     ci: 'bg-orange-300/60',
@@ -62,13 +68,13 @@ const Sidebar = ({
   }
 
   const commitTypeClass: Record<string, string> = {
-    feat: 'text-cyan-200/80',
-    fix: 'text-rose-200/70',
-    docs: 'text-sky-200/70',
-    style: 'text-sky-200/70',
-    test: 'text-emerald-200/70',
-    refactor: 'text-violet-200/70',
-    perf: 'text-violet-200/70',
+    feat: 'text-cyan-300/90',
+    fix: 'text-rose-300/90',
+    docs: 'text-sky-500/80',
+    style: 'text-sky-500/80',
+    test: 'text-emerald-200/80',
+    refactor: 'text-violet-300/90',
+    perf: 'text-violet-300/90',
     chore: 'text-orange-200/70',
     build: 'text-orange-200/70',
     ci: 'text-orange-200/70',
@@ -167,17 +173,20 @@ const Sidebar = ({
                       </div>
                       <div className="mt-3 space-y-3">
                         {selectedCommits.map((item) => {
-                          const commitType = normalizeCommitType(item.commit?.type)
+                          const commitType = normalizeCommitType(
+                            item.commit?.type,
+                            item.commit?.message,
+                          )
                           
                           const isMerge = isMergePullRequest(item.commit?.message)
                           const dotClass = isMerge
                             ? 'bg-amber-300/90'
                             : commitDotClass[commitType]
 
-                          const typeLabel = isMerge ? 'PR' : item.commit?.type
+                          const typeLabel = isMerge ? 'PR' : commitType
 
                           const typeClass = isMerge
-                            ? 'text-amber-200/70'
+                            ? 'text-amber-200/90'
                             : commitTypeClass[commitType]
                             
                           return (

@@ -72,16 +72,21 @@ type RepoGalaxyProps = {
 
 const normalizeCommitType = (value?: string) => {
   const normalized = value?.trim().toLowerCase() ?? ''
-  if (normalized.startsWith('feat')) return 'feat'
-  if (normalized.startsWith('fix')) return 'fix'
-  if (normalized.startsWith('docs')) return 'docs'
-  if (normalized.startsWith('style')) return 'style'
-  if (normalized.startsWith('test')) return 'test'
-  if (normalized.startsWith('refactor')) return 'refactor'
-  if (normalized.startsWith('perf')) return 'perf'
-  if (normalized.startsWith('chore')) return 'chore'
-  if (normalized.startsWith('build')) return 'build'
-  if (normalized.startsWith('ci')) return 'ci'
+  const prefixMatch = normalized.match(/^\s*([a-z]+)(?:\([^)]+\))?:/)
+  const keywordMatch = normalized.match(
+    /\b(feat|fix|docs|style|test|refactor|perf|chore|build|ci)\b/,
+  )
+  const token = prefixMatch?.[1] || normalized.match(/^[a-z]+/)?.[0] || keywordMatch?.[1] || ''
+  if (token.startsWith('feat')) return 'feat'
+  if (token.startsWith('fix')) return 'fix'
+  if (token.startsWith('docs')) return 'docs'
+  if (token.startsWith('style')) return 'style'
+  if (token.startsWith('test')) return 'test'
+  if (token.startsWith('refactor')) return 'refactor'
+  if (token.startsWith('perf')) return 'perf'
+  if (token.startsWith('chore')) return 'chore'
+  if (token.startsWith('build')) return 'build'
+  if (token.startsWith('ci')) return 'ci'
   return 'other'
 }
 

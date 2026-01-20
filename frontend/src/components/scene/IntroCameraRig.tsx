@@ -5,7 +5,7 @@ import { Vector3 } from "three";
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 
 const INTRO_DURATION = 5.0;
-const AUTO_ROTATE_SPEED = 0.3;
+const AUTO_ROTATE_SPEED = 0.5;
 
 // universe -> galaxy : close up
 const FOCUS_DURATION = 3.0;
@@ -13,7 +13,7 @@ const FOCUS_DISTANCE = 5.0;
 const FOCUS_HEIGHT = 1.2;
 
 // galaxy -> universe : wide shot
-const DEFAULT_CAMERA = new Vector3(0, 6, 18);
+const DEFAULT_CAMERA = new Vector3(0, 7, 24);
 const DEFAULT_TARGET = new Vector3(0, 0, 0);
 
 type IntroCameraRigProps = {
@@ -166,8 +166,8 @@ export default function IntroCameraRig({
 
     const startAngle = Math.PI * 1.1;
     const endAngle = Math.PI * 0.15;
-    const startRadius = 32;
-    const endRadius = 18;
+    const startRadius = 36;
+    const endRadius = 24;
 
     const angle = startAngle + (endAngle - startAngle) * ease;
     const radius = startRadius + (endRadius - startRadius) * ease;
