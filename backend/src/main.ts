@@ -11,7 +11,12 @@ async function bootstrap() {
 
   const app = await NestFactory.create(AppModule);
 
-  app.enableCors({ origin: 'http://localhost:5173' })
+  app.enableCors({
+    origin: "http://localhost:5173",
+    methods: "GET,POST,PUT,PATCH,DELETE,OPTIONS",
+    allowedHeaders: "Content-Type, Authorization",
+    credentials: false,
+  });
 
   // Swagger 설정 객체 생성
   const config = new DocumentBuilder()
@@ -36,7 +41,7 @@ async function bootstrap() {
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('api', app, document);
 
-  await app.listen(process.env.PORT ?? 3000);
+  await app.listen(3000, '0.0.0.0');
   console.log(`Application is running on: http://localhost:3000/api`);
 }
 bootstrap();

@@ -12,17 +12,41 @@ import UniverseCanvas from '../components/UniverseCanvas'
 const FOCUS_TRANSITION_MS = 1500  // 전환 지연 시간 조정
 
 const GalaxyPage = () => {
-  const { auth, status, message, setMessage, apiBaseUrl, handleGithubLogin, handleLogout } =
-    useAuth()
+  const {
+    auth,
+    status,
+    message: authMessage,
+    setMessage: setAuthMessage,
+    apiBaseUrl,
+    handleGithubLogin,
+    handleLogout,
+  } = useAuth()
   const [sidebarOpen, setSidebarOpen] = useState(true)
+  const [selectedUserId, setSelectedUserId] = useState<number | null>(null)
   const [focusRepoId, setFocusRepoId] = useState<number | null>(null)
   const [exitRepoId, setExitRepoId] = useState<number | null>(null)
   const focusTimerRef = useRef<number | null>(null)
-  const { summary, selectedRepoId, setSelectedRepoId, galaxy, syncing } = useGalaxyData(
+  const {
+    summary,
+    selectedRepoId,
+    setSelectedRepoId,
+    galaxy,
+    syncing,
+    message: galaxyMessage,
+    setMessage: setGalaxyMessage,
+    viewLoading,
+  } = useGalaxyData(
     auth,
     apiBaseUrl,
+    selectedUserId,
   )
   const friendPanel = useFriends(auth, apiBaseUrl)
+
+  const bannerMessage = galaxyMessage || authMessage
+
+  if (!auth) {
+    return <AuthGate status={status} message={authMessage} onLogin={handleGithubLogin} />
+  }
 
   useEffect(() => {
     return () => {
@@ -30,9 +54,13 @@ const GalaxyPage = () => {
     }
   }, [])
 
-  if (!auth) {
-    return <AuthGate status={status} message={message} onLogin={handleGithubLogin} />
-  }
+  useEffect(() => {
+    clearFocusTimer()
+    setFocusRepoId(null)
+    setExitRepoId(null)
+    setSelectedRepoId(null)
+  }, [selectedUserId])
+
 
   const selectedRepo =
     summary?.galaxies.find((repo) => repo.repoId === selectedRepoId) ?? null
@@ -41,7 +69,6 @@ const GalaxyPage = () => {
   const showRepoGalaxy = selectedRepoId != null
   const showUniverseLayer = !showRepoGalaxy
   const showRepoLayer = showRepoGalaxy
-
   function clearFocusTimer() {
     if (focusTimerRef.current != null) {
       window.clearTimeout(focusTimerRef.current)
@@ -59,6 +86,10 @@ const GalaxyPage = () => {
       setFocusRepoId(null)
       focusTimerRef.current = null
     }, FOCUS_TRANSITION_MS)
+  }
+
+  const handleSelectUser = (userId: number | null) => {
+    setSelectedUserId(userId)
   }
 
   return (
@@ -96,7 +127,8 @@ const GalaxyPage = () => {
               }}
               onLogout={() => {
                 handleLogout()
-                setMessage('')
+                setAuthMessage('')
+                setGalaxyMessage('')
               }}
               friendPanel={{
                 friends: friendPanel.friends,
@@ -106,6 +138,8 @@ const GalaxyPage = () => {
                 searchQuery: friendPanel.searchQuery,
                 loading: friendPanel.loading,
                 error: friendPanel.error,
+                selectedFriendId: selectedUserId,
+                onSelectFriend: handleSelectUser,
                 onSearch: friendPanel.searchUsers,
                 onSendRequest: friendPanel.sendRequest,
                 onAccept: friendPanel.acceptRequest,
@@ -124,6 +158,15 @@ const GalaxyPage = () => {
           >
             {sidebarOpen ? 'Hide sidebar' : 'Show sidebar'}
           </button>
+
+          {viewLoading && (
+            <div className="absolute inset-0 z-30 flex items-center justify-center bg-slate-950/60 backdrop-blur-sm">
+              <div className="flex items-center gap-3 rounded-xl border border-white/10 bg-black/60 px-4 py-3 text-xs text-slate-100">
+                <span className="h-3 w-3 animate-spin rounded-full border-2 border-cyan-200/30 border-t-cyan-200" />
+                Loading universe...
+              </div>
+            </div>
+          )}
 
           <div
             className={`absolute inset-0 transition-opacity duration-[420ms] ease-in-out ${
@@ -162,9 +205,9 @@ const GalaxyPage = () => {
             subtitle={starCount ? `${starCount} stars rendered` : 'No stars yet'}
           />
 
-          {message && (
+          {bannerMessage && (
             <div className="absolute bottom-6 left-6 z-10 rounded-xl border border-amber-200/30 bg-amber-200/10 px-3 py-2 text-xs text-amber-100">
-              {message}
+              {bannerMessage}
             </div>
           )}
         </section>
