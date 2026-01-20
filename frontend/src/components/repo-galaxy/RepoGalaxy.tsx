@@ -185,13 +185,20 @@ export default function RepoGalaxy({
     const ro = new ResizeObserver(() => applySizes())
     ro.observe(container)
 
-    // 커밋 개수만큼 feature star 생성 : 50개 이상이면 스케일 적용
+    // 커밋 개수만큼 feature star 생성 : 70개 이상이면 스케일 적용
     const galaxy = new Galaxy(scene)    
-    const rawCommitCount = Math.max(0, Math.floor(commitCount ?? 0))
-    const featureStarCount =
-      rawCommitCount < 50
-        ? rawCommitCount
-        : Math.min(400, Math.floor(rawCommitCount * 0.2))
+    const rawCommitCount = Math.max(0, Math.floor(commitCount ?? 0));
+    let featureStarCount: number;
+
+    if (rawCommitCount < 70) {
+        featureStarCount = rawCommitCount;
+    } else {
+        featureStarCount = 70 + Math.floor(Math.log10(rawCommitCount - 69) * 20);
+    }
+
+    // 최대치는 200개
+    featureStarCount = Math.min(200, featureStarCount);
+
     const seedBasis = String(seedKey ?? 'repo-galaxy')
     const seededRandom = mulberry32(hashStringToSeed(seedBasis))
     const thickness = Math.max(8, GALAXY_THICKNESS)
