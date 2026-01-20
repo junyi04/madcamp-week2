@@ -56,6 +56,20 @@ type GalaxyCanvasProps = {
   tintColor?: string | null
 }
 
+const normalizeCommitType = (value?: string) => {
+  const normalized = value?.trim().toLowerCase() ?? ''
+  if (normalized.startsWith('feat')) return 'feat'
+  if (normalized.startsWith('fix')) return 'fix'
+  if (normalized.startsWith('docs')) return 'docs'
+  return ''
+}
+
+const commitTypeColors: Record<string, string> = {
+  fix: '#f87171',
+  docs: '#60a5fa',
+}
+
+
 const GalaxyCanvas = ({ stars, tintColor }: GalaxyCanvasProps) => {
   const containerRef = useRef<HTMLDivElement>(null)
   const sceneRef = useRef<THREE.Scene | null>(null)
@@ -195,7 +209,10 @@ const GalaxyCanvas = ({ stars, tintColor }: GalaxyCanvasProps) => {
       dummy.scale.setScalar(sizeScale)
       dummy.updateMatrix()
       mesh.setMatrixAt(index, dummy.matrix)
-      const resolvedColor = tintColor ?? star.color ?? '#ffffff'
+      const commitType =
+        star.type === 'COMMIT' ? normalizeCommitType(star.commit?.type) : ''
+      const commitColor = commitType ? commitTypeColors[commitType] : undefined
+      const resolvedColor = tintColor ?? commitColor ?? star.color ?? '#ffffff'
       color.set(resolvedColor)
       mesh.instanceColor?.setXYZ(index, color.r, color.g, color.b)
     })

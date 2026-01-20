@@ -32,11 +32,39 @@ const Sidebar = ({
     }).format(parsed)
   }
 
+  const normalizeCommitType = (value?: string) => {
+    const normalized = value?.trim().toLowerCase() ?? ''
+    if (normalized.startsWith('merge pull request')) return 'PR'
+    if (normalized.startsWith('feat')) return 'feat'
+    if (normalized.startsWith('fix')) return 'fix'
+    if (normalized.startsWith('docs')) return 'docs'
+    return 'other'
+  }
+
+  const commitDotClass: Record<string, string> = {
+    feat: 'bg-cyan-300/80',
+    fix: 'bg-rose-400/80',
+    docs: 'bg-sky-300/80',
+    other: 'bg-slate-500',
+  }
+
+  const commitTypeClass: Record<string, string> = {
+    feat: 'text-cyan-200/80',
+    fix: 'text-rose-200/90',
+    docs: 'text-sky-200/90',
+    other: 'text-slate-400',
+  }
+
+  const isMergePullRequest = (message?: string) => {
+    const normalized = message?.trim().toLowerCase() ?? ''
+    return normalized.startsWith('merge pull request')
+  }
+
   const selectedCommits =
     selectedRepoId && galaxy?.repoId === selectedRepoId
       ? galaxy.celestialObjects
           .filter((item) => item.type === 'COMMIT' && item.commit?.message).reverse()
-          .slice(0, 10)
+          .slice(0, 30)
       : []
 
   return (
@@ -118,27 +146,42 @@ const Sidebar = ({
                         <span>{selectedCommits.length}</span>
                       </div>
                       <div className="mt-3 space-y-3">
-                        {selectedCommits.map((item) => (
-                          <div key={item.id} className="flex items-start gap-3">
-                            <span className="mt-1.5 h-1.5 w-1.5 rounded-full bg-cyan-300/80" />
-                            <div className="min-w-0 space-y-1">
-                              <div className="truncate text-slate-200">
-                                {item.commit?.message}
-                              </div>
-                              <div className="flex items-center gap-2 text-[10px] uppercase tracking-[0.18em] text-slate-500">
-                                <span>{formatCommitDate(item.commit?.date)}</span>
-                                <span className="h-0.5 w-0.5 rounded-full bg-slate-600" />
-                                <span>{item.commit?.sha.slice(0, 6)}</span>
-                                {item.commit?.type && (
-                                  <>
-                                    <span className="h-0.5 w-0.5 rounded-full bg-slate-600" />
-                                    <span className="text-cyan-200/80">{item.commit.type}</span>
-                                  </>
-                                )}
+                        {selectedCommits.map((item) => {
+                          const commitType = normalizeCommitType(item.commit?.type)
+                          const isMerge = isMergePullRequest(item.commit?.message)
+                          const dotClass = isMerge
+                            ? 'bg-amber-300/90'
+                            : commitDotClass[commitType]
+                          const typeLabel = isMerge ? 'PR' : item.commit?.type
+                          const typeClass = isMerge
+                            ? 'text-amber-200/90'
+                            : commitTypeClass[commitType]
+                          return (
+                            <div key={item.id} className="flex items-start gap-3">
+                              <span
+                                className={`mt-1.5 h-1.5 w-1.5 rounded-full ${dotClass}`}
+                              />
+                              <div className="min-w-0 space-y-1">
+                                <div className="truncate text-slate-200">
+                                  {item.commit?.message}
+                                </div>
+                                <div className="flex items-center gap-2 text-[10px] uppercase tracking-[0.18em] text-slate-500">
+                                  <span>{formatCommitDate(item.commit?.date)}</span>
+                                  <span className="h-0.5 w-0.5 rounded-full bg-slate-600" />
+                                  <span>{item.commit?.sha.slice(0, 6)}</span>
+                                  {item.commit?.type && (
+                                    <>
+                                      <span className="h-0.5 w-0.5 rounded-full bg-slate-600" />
+                                      <span className={typeClass}>
+                                        {typeLabel}
+                                      </span>
+                                    </>
+                                  )}
+                                </div>
                               </div>
                             </div>
-                          </div>
-                        ))}
+                          )
+                        })}
                       </div>
                     </div>
                   )}
