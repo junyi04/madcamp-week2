@@ -34,6 +34,7 @@ const GalaxyPage = () => {
     syncing,
     message: galaxyMessage,
     setMessage: setGalaxyMessage,
+    viewLoading,
   } = useGalaxyData(
     auth,
     apiBaseUrl,
@@ -159,6 +160,15 @@ const GalaxyPage = () => {
           >
             {sidebarOpen ? 'Hide sidebar' : 'Show sidebar'}
           </button>
+
+          {viewLoading && (
+            <div className="absolute inset-0 z-30 flex items-center justify-center bg-slate-950/60 backdrop-blur-sm">
+              <div className="flex items-center gap-3 rounded-xl border border-white/10 bg-black/60 px-4 py-3 text-xs text-slate-100">
+                <span className="h-3 w-3 animate-spin rounded-full border-2 border-cyan-200/30 border-t-cyan-200" />
+                Loading universe...
+              </div>
+            </div>
+          )}
 
           <div
             className={`absolute inset-0 transition-opacity duration-[420ms] ease-in-out ${

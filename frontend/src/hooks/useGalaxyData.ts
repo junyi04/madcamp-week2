@@ -10,22 +10,59 @@ export const useGalaxyData = (
   const [selectedRepoId, setSelectedRepoId] = useState<number | null>(null)
   const [galaxy, setGalaxy] = useState<GalaxyResponse | null>(null)
   const [syncing, setSyncing] = useState(false)
+  const [viewLoading, setViewLoading] = useState(false)
   const [message, setMessage] = useState('')
   const lastSyncedRepoRef = useRef<number | null>(null)
   const backgroundSyncedReposRef = useRef<Set<number>>(new Set())
   const backgroundSyncInFlightRef = useRef<Set<number>>(new Set())
   const initialBackgroundSyncPendingRef = useRef(false)
   const prevAuthRef = useRef<AuthState | null>(null)
+  const viewLoadingStartedAtRef = useRef<number | null>(null)
+  const viewLoadingTimeoutRef = useRef<number | null>(null)
   const summaryRefreshTimeoutRef = useRef<number | null>(null)
   const summaryRefreshQueueRef = useRef(0)
   const summaryRefreshInFlightRef = useRef(false)
   const isViewingFriend = selectedUserId != null
+  const VIEW_LOADING_MIN_MS = 2000
+
+  const beginViewLoading = () => {
+    if (viewLoadingTimeoutRef.current != null) {
+      window.clearTimeout(viewLoadingTimeoutRef.current)
+      viewLoadingTimeoutRef.current = null
+    }
+    viewLoadingStartedAtRef.current = Date.now()
+    setViewLoading(true)
+  }
+
+  const finishViewLoading = () => {
+    const startedAt = viewLoadingStartedAtRef.current
+    if (!startedAt) {
+      setViewLoading(false)
+      return
+    }
+
+    const elapsed = Date.now() - startedAt
+    const remaining = VIEW_LOADING_MIN_MS - elapsed
+    if (remaining <= 0) {
+      setViewLoading(false)
+      return
+    }
+
+    if (viewLoadingTimeoutRef.current != null) {
+      window.clearTimeout(viewLoadingTimeoutRef.current)
+    }
+    viewLoadingTimeoutRef.current = window.setTimeout(() => {
+      setViewLoading(false)
+      viewLoadingTimeoutRef.current = null
+    }, remaining)
+  }
 
   const fetchSummary = async (withSync: boolean) => {
     if (!auth) {
       return
     }
 
+    let summaryOk = false
     if (isViewingFriend) {
       withSync = false
     }
@@ -65,11 +102,15 @@ export const useGalaxyData = (
       const data = (await response.json()) as SummaryResponse
       setSummary(data)
       setMessage('')
+      summaryOk = true
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'Summary fetch failed.')
     } finally {
       if (withSync) {
         setSyncing(false)
+      }
+      if (!summaryOk) {
+        finishViewLoading()
       }
     }
   }
@@ -101,6 +142,11 @@ export const useGalaxyData = (
     if (!auth) {
       prevAuthRef.current = null
       initialBackgroundSyncPendingRef.current = false
+      viewLoadingStartedAtRef.current = null
+      if (viewLoadingTimeoutRef.current != null) {
+        window.clearTimeout(viewLoadingTimeoutRef.current)
+        viewLoadingTimeoutRef.current = null
+      }
       return
     }
 
@@ -111,6 +157,19 @@ export const useGalaxyData = (
     prevAuthRef.current = auth
   }, [auth])
 
+
+  useEffect(() => {
+    if (!auth) {
+      setViewLoading(false)
+      setMessage('')
+      return
+    }
+
+    beginViewLoading()
+    setSummary(null)
+    setGalaxy(null)
+    setMessage('')
+  }, [auth, selectedUserId])
 
   useEffect(() => {
     if (!auth) {
@@ -125,6 +184,7 @@ export const useGalaxyData = (
       }
       summaryRefreshQueueRef.current = 0
       summaryRefreshInFlightRef.current = false
+      setViewLoading(false)
       initialBackgroundSyncPendingRef.current = false
       return
     }
@@ -212,6 +272,7 @@ export const useGalaxyData = (
       } finally {
         if (!cancelled) {
           setSyncing(false)
+          finishViewLoading()
         }
       }
     }
@@ -297,6 +358,7 @@ export const useGalaxyData = (
       } finally {
         if (!cancelled) {
           setSyncing(false)
+          finishViewLoading()
         }
       }
     }
@@ -398,6 +460,14 @@ export const useGalaxyData = (
     }
   }, [apiBaseUrl, auth, summary, selectedRepoId, selectedUserId])
 
+  useEffect(() => {
+    return () => {
+      if (viewLoadingTimeoutRef.current != null) {
+        window.clearTimeout(viewLoadingTimeoutRef.current)
+      }
+    }
+  }, [])
+
   return {
     summary,
     selectedRepoId,
@@ -406,5 +476,6 @@ export const useGalaxyData = (
     syncing,
     message,
     setMessage,
+    viewLoading,
   }
 }
