@@ -194,16 +194,15 @@ const GalaxyPage = () => {
           )}
 
           <div
-            className={`absolute inset-0 transition-opacity duration-[420ms] ease-in-out ${
-              showUniverseLayer ? 'opacity-100' : 'opacity-0'
-            } ${showUniverseLayer ? 'pointer-events-auto' : 'pointer-events-none'}`}
+            className={`absolute inset-0 transition-opacity duration-[420ms] ease-in-out ${showUniverseLayer ? 'opacity-100' : 'opacity-0'
+              } ${showUniverseLayer ? 'pointer-events-auto' : 'pointer-events-none'}`}
           >
             <UniverseCanvas
               repos={summary?.galaxies ?? []}
               selectedRepoId={selectedRepoId}
               focusRepoId={focusRepoId}
               exitRepoId={exitRepoId}
-              onSelectRepo={() => {}}
+              onSelectRepo={() => { }}
             />
 
             <div className="relative z-10 h-full">
@@ -212,9 +211,8 @@ const GalaxyPage = () => {
           </div>
 
           <div
-            className={`absolute inset-0 transition-opacity duration-[420ms] ease-in-out ${
-              showRepoLayer ? 'opacity-100' : 'opacity-0'
-            } ${showRepoLayer ? 'pointer-events-auto' : 'pointer-events-none'}`}
+            className={`absolute inset-0 transition-opacity duration-[420ms] ease-in-out ${showRepoLayer ? 'opacity-100' : 'opacity-0'
+              } ${showRepoLayer ? 'pointer-events-auto' : 'pointer-events-none'}`}
           >
             <div className="relative z-10 h-full">
               <RepoGalaxy

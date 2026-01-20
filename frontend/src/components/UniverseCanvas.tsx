@@ -8,6 +8,7 @@ import BackgroundNebula from "./scene/BackgroundNebula";
 import IntroCameraRig from "./scene/IntroCameraRig";
 import Meteors from "./scene/Meteors";
 import { hashStringToSeed, mulberry32, randRange } from "../utils/seed";
+import Skybox from "../Skybox";
 
 type RepoLike = {
   repoId: number | string;
@@ -33,6 +34,7 @@ type ClusterState = {
   position: [number, number, number];
   scale: number;
   phase: ClusterPhase;
+  rotation: [number, number, number];
   phaseStartedAt: number;
 };
 
@@ -53,8 +55,8 @@ export default function UniverseCanvas({
   const [clusters, setClusters] = useState<ClusterState[]>([]);
 
   const placements = useMemo(() => {
-    const RMAX = 15;        // 은하 퍼점 반경
-    const YSPREAD = 10.0;   // 은하 수직 범위
+    const RMAX = repos.length+5;        // 은하 퍼점 반경
+    const YSPREAD = repos.length+5;   // 은하 수직 범위
 
     const count = Math.max(repos.length, 1);
     const goldenAngle = Math.PI * (3 - Math.sqrt(5));
@@ -83,6 +85,11 @@ export default function UniverseCanvas({
         label: repo.name ?? repoId,
         position: [x, y, z] as [number, number, number],
         scale,
+        rotation: [
+          randRange(r, 0, Math.PI * 2),
+          randRange(r, 0, Math.PI * 2),
+          randRange(r, 0, Math.PI * 2),
+        ] as [number, number, number],
       };
     });
   }, [repos]);
@@ -204,9 +211,8 @@ export default function UniverseCanvas({
     >
       <ambientLight intensity={0.3} />
       <Environment preset="night" />
-      <BackgroundNebula />
+      <Skybox />
       <BackgroundEvents />
-      <BackgroundStars />
       <Meteors />
 
       {/* 개별 은하 그림 */}
@@ -220,6 +226,7 @@ export default function UniverseCanvas({
             id={p.id}
             position={p.position}
             scale={p.scale}
+            rotation={p.rotation}
             commitCount={p.commitCount}
             label={p.label}
             showLabel={hoveredId === p.id}

@@ -164,17 +164,32 @@ const FriendPanel = ({
             </div>
           )}
 
-          {!!friends.length && (
-            <div>
-              <p className="text-[11px] uppercase tracking-[0.2em] text-slate-500">
-                Your friends
-              </p>
-              <div className="mt-2 space-y-2">
-                <button
-                  type="button"
-                  onClick={() => onSelectFriend(null)}
-                  className={`flex w-full items-center justify-between rounded-lg border px-2 py-1 text-left text-xs transition ${
-                    selectedFriendId === null
+        {!!friends.length && (
+          <div>
+            <p className="text-[11px] uppercase tracking-[0.2em] text-slate-500">
+              Your friends
+            </p>
+            <div className="mt-2 space-y-2">
+              <button
+                type="button"
+                onClick={() => onSelectFriend(null)}
+                className={`flex w-full items-center justify-between rounded-lg border px-2 py-2 text-left text-xs transition ${
+                  selectedFriendId === null
+                    ? 'border-cyan-300/60 bg-cyan-300/10 text-cyan-100'
+                    : 'border-white/5 bg-black/30 text-slate-200 hover:border-white/30'
+                }`}
+              >
+                <span>My Universe</span>
+                <span className="text-[10px] uppercase tracking-[0.2em] text-slate-400">
+                  you
+                </span>
+              </button>
+              {friends.map((entry) => (
+                <div
+                  key={entry.id}
+                  onClick={() => onSelectFriend(entry.friend.id)}
+                  className={`flex items-center justify-between rounded-lg border px-2 py-1 text-xs transition ${
+                    selectedFriendId === entry.friend.id
                       ? 'border-cyan-300/60 bg-cyan-300/10 text-cyan-100'
                       : 'border-white/5 bg-black/30 text-slate-200 hover:border-white/30'
                   }`}

@@ -10,6 +10,7 @@ type GalaxyClusterProps = {
   position: [number, number, number];
   commitCount: number;
   scale?: number;
+  rotation?: [number, number, number];
   label?: string;
   showLabel?: boolean;
   hitRadius?: number;
@@ -26,6 +27,7 @@ export default function GalaxyCluster(props: GalaxyClusterProps) {
     position,
     commitCount,
     scale = 1,
+    rotation,
     label,
     showLabel,
     hitRadius = 0,
@@ -38,13 +40,15 @@ export default function GalaxyCluster(props: GalaxyClusterProps) {
     const r = mulberry32(seed);
 
     // 은하 파라미터 (레포마다 다름)
-    const count =commitCount * 200 + 100;
-    const branches = Math.floor(randRange(r, 3, 8)); // 3~5
+    const count = commitCount * 200 + 100;
+    const branches = Math.max(Math.floor(commitCount / 10), 3); // 3~5
     const radiusMax = Math.log10(commitCount + 1) + 1.0;
     const spin = Math.log10(commitCount + 1) + 0.3;
     const thickness = randRange(r, 0.15, 0.3);
+    const armOffset = randRange(r, 0, Math.PI * 2);
+    const spinDirection = r() < 0.5 ? -1 : 1;
 
-    const insideColor = new THREE.Color().setHSL(randRange(r, 0.02, 0.12), 0.9, 0.65);
+    const insideColor = new THREE.Color().setHSL(randRange(r, 0.0, 0.2), 0.9, 0.65);
     const outsideColor = new THREE.Color().setHSL(randRange(r, 0.55, 0.75), 0.9, 0.45);
 
     const positions = new Float32Array(count * 3);
@@ -52,12 +56,12 @@ export default function GalaxyCluster(props: GalaxyClusterProps) {
 
     for (let i = 0; i < count; i++) {
       // 중심이 빽빽하도록 분포
-      const t = Math.pow(r(), 1.5);
+      const t = Math.pow(r(), 2.5);
       const radius = t * radiusMax;
 
       const branch = i % branches;
-      const branchAngle = (branch / branches) * Math.PI * 2;
-      const spinAngle = radius * spin;
+      const branchAngle = (branch / branches) * Math.PI * 2 + armOffset;
+      const spinAngle = radius * spin * spinDirection;
 
       // 나선 기본 좌표
       const angle = branchAngle + spinAngle;
@@ -66,7 +70,7 @@ export default function GalaxyCluster(props: GalaxyClusterProps) {
       let z = Math.sin(angle) * radius;
 
       // 팔 주변으로 퍼짐
-      const spread = (1 - t) * 0.05 + t * 0.35;
+      const spread = (1 - t) * 0.01 + t * randRange(r, 0.25, 0.30);
       x += (Math.pow(r(), 3) - 0.5) * 2 * spread * radiusMax;
       z += (Math.pow(r(), 3) - 0.5) * 2 * spread * radiusMax;
 
@@ -105,7 +109,7 @@ export default function GalaxyCluster(props: GalaxyClusterProps) {
     alphaMap.needsUpdate = true;
 
     const mat = new THREE.PointsMaterial({
-      size: randRange(r, 0.02, 0.06),
+      size: randRange(r, 0.03, 0.06),
       sizeAttenuation: true,
       vertexColors: true,
       transparent: true,
@@ -120,7 +124,7 @@ export default function GalaxyCluster(props: GalaxyClusterProps) {
   const useHitArea = hitRadius > 0;
 
   return (
-    <group position={position} scale={scale}>
+    <group position={position} scale={scale} rotation={rotation}>
       <points
         geometry={geometry}
         material={material}
@@ -137,7 +141,7 @@ export default function GalaxyCluster(props: GalaxyClusterProps) {
 
       {showLabel && label ? (
         <Billboard position={[0, 0.8, 0]}>
-  `        <Html
+          `        <Html
             center
             transform
             distanceFactor={10}
