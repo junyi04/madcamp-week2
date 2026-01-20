@@ -134,7 +134,8 @@ export class FriendsService {
             where: {
                 receiverId: receiverId,
                 status: FriendRequestStatus.PENDING
-            }
+            },
+            include: { requester: { include: { githubUser: true } } }
         })
     }
 
@@ -151,7 +152,8 @@ export class FriendsService {
             where: {
                 requesterId: requesterId,
                 status: FriendRequestStatus.PENDING
-            }
+            },
+            include: { receiver: { include: { githubUser: true } } }
         })
     }
 

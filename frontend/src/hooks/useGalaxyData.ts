@@ -13,15 +13,12 @@ export const useGalaxyData = (
   const [viewLoading, setViewLoading] = useState(false)
   const [message, setMessage] = useState('')
   const lastSyncedRepoRef = useRef<number | null>(null)
-  const backgroundSyncedReposRef = useRef<Set<number>>(new Set())
+  const lastAggregateKeyRef = useRef<string | null>(null)
   const backgroundSyncInFlightRef = useRef<Set<number>>(new Set())
   const initialBackgroundSyncPendingRef = useRef(false)
   const prevAuthRef = useRef<AuthState | null>(null)
   const viewLoadingStartedAtRef = useRef<number | null>(null)
   const viewLoadingTimeoutRef = useRef<number | null>(null)
-  const summaryRefreshTimeoutRef = useRef<number | null>(null)
-  const summaryRefreshQueueRef = useRef(0)
-  const summaryRefreshInFlightRef = useRef(false)
   const isViewingFriend = selectedUserId != null
   const VIEW_LOADING_MIN_MS = 2000
 
@@ -148,6 +145,7 @@ export const useGalaxyData = (
     if (!auth) {
       prevAuthRef.current = null
       initialBackgroundSyncPendingRef.current = false
+      lastAggregateKeyRef.current = null
       viewLoadingStartedAtRef.current = null
       if (viewLoadingTimeoutRef.current != null) {
         window.clearTimeout(viewLoadingTimeoutRef.current)
@@ -175,6 +173,7 @@ export const useGalaxyData = (
     setSummary(null)
     setGalaxy(null)
     setMessage('')
+    lastAggregateKeyRef.current = null
   }, [auth, selectedUserId])
 
   useEffect(() => {
@@ -183,6 +182,7 @@ export const useGalaxyData = (
       setGalaxy(null)
       setSelectedRepoId(null)
       lastSyncedRepoRef.current = null
+      lastAggregateKeyRef.current = null
       backgroundSyncedReposRef.current.clear()
       if (summaryRefreshTimeoutRef.current) {
         window.clearTimeout(summaryRefreshTimeoutRef.current)
@@ -244,8 +244,10 @@ export const useGalaxyData = (
                 ? 'Friend universe is private.'
                 : 'Friend universe not found.',
             )
+            lastAggregateKeyRef.current = null
             return
           }
+          lastAggregateKeyRef.current = null
           throw new Error('Failed to load galaxies.')
         }
         const galaxies = (await Promise.all(
@@ -274,6 +276,7 @@ export const useGalaxyData = (
       } catch (error) {
         if (!cancelled) {
           setMessage(error instanceof Error ? error.message : 'Galaxy fetch failed.')
+          lastAggregateKeyRef.current = null
         }
       } finally {
         if (!cancelled) {
@@ -370,8 +373,15 @@ export const useGalaxyData = (
     }
 
     if (!selectedRepoId) {
-      void loadAggregateGalaxy()
+      const summaryKey = summary.galaxies
+        .map((repo) => `${repo.repoId}:${repo.commitCount}`)
+        .join('|')
+      if (lastAggregateKeyRef.current !== summaryKey) {
+        lastAggregateKeyRef.current = summaryKey
+        void loadAggregateGalaxy()
+      }
     } else {
+      lastAggregateKeyRef.current = null
       void loadSingleGalaxy(selectedRepoId)
     }
 
@@ -473,68 +483,6 @@ export const useGalaxyData = (
       }
     }
   }, [])
-
-  useEffect(() => {
-    if (!auth || !summary) {
-      return
-    }
-
-    let cancelled = false
-
-    const repoIds = summary.galaxies
-      .map((repo) => repo.repoId)
-      .filter(
-        (repoId) =>
-          repoId !== selectedRepoId &&
-          !backgroundSyncedReposRef.current.has(repoId),
-      )
-
-    if (!repoIds.length) {
-      return undefined
-    }
-
-    const queue = [...repoIds]
-    const concurrency = 3
-
-    const syncRepo = async (repoId: number) => {
-      try {
-        const response = await fetch(
-          `${apiBaseUrl}/oauth/commits/sync?repoId=${encodeURIComponent(repoId)}`,
-          {
-            method: 'POST',
-            headers: { Authorization: `Bearer ${auth.appToken}` },
-          },
-        )
-        if (!response.ok) {
-          throw new Error('Failed to sync commits.')
-        }
-        backgroundSyncedReposRef.current.add(repoId)
-        scheduleSummaryRefresh(2)
-      } catch (error) {
-        if (!cancelled) {
-          setMessage(error instanceof Error ? error.message : 'Commit sync failed.')
-        }
-      }
-    }
-
-    const runWorker = async () => {
-      while (queue.length && !cancelled) {
-        const repoId = queue.shift()
-        if (repoId == null) {
-          return
-        }
-        await syncRepo(repoId)
-      }
-    }
-
-    void Promise.all(
-      Array.from({ length: Math.min(concurrency, queue.length) }, () => runWorker()),
-    )
-
-    return () => {
-      cancelled = true
-    }
-  }, [apiBaseUrl, auth, summary, selectedRepoId])
 
   return {
     summary,
