@@ -1,9 +1,9 @@
-import { useEffect, useRef, useState, type MutableRefObject } from 'react'
+import { useEffect, useRef, useState, type CSSProperties, type MutableRefObject } from 'react'
 import * as THREE from 'three'
 
-import { CompositionShader } from './shaders/CompositionShader'
-import { BASE_LAYER, BLOOM_LAYER, BLOOM_PARAMS, OVERLAY_LAYER } from './config/renderConfig'
-import { MapControls } from 'three/examples/jsm/controls/MapControls.js'
+import { CompositionShader } from '../../shaders/CompositionShader'
+import { BASE_LAYER, BLOOM_LAYER, BLOOM_PARAMS, OVERLAY_LAYER } from '../../config/renderConfig'
+import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js'
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js'
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js'
@@ -11,7 +11,32 @@ import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js'
 import { Galaxy } from './objects/galaxy'
 import { FeatureStar } from './objects/featureStar'
 
-import './RepoGalaxy.css'
+const rootStyle: CSSProperties = {
+  width: '100%',
+  height: '100%',
+  margin: 0,
+  position: 'relative',
+}
+
+const canvasStyle: CSSProperties = {
+  width: '100%',
+  height: '100%',
+  display: 'block',
+}
+
+const labelStyle: CSSProperties = {
+  position: 'absolute',
+  pointerEvents: 'none',
+  zIndex: 2,
+  padding: '4px 8px',
+  borderRadius: 999,
+  background: 'rgba(10, 12, 18, 0.85)',
+  color: '#f4f6fb',
+  fontSize: 12,
+  letterSpacing: '0.02em',
+  border: '1px solid rgba(255, 255, 255, 0.2)',
+  boxShadow: '0 10px 25px rgba(0, 0, 0, 0.35)',
+}
 
 export type CameraPose = {
   position: { x: number; y: number; z: number }
@@ -20,14 +45,17 @@ export type CameraPose = {
 
 type RepoGalaxyProps = {
   cameraPoseRef?: MutableRefObject<CameraPose | null>
+  active?: boolean
 }
 
-export default function RepoGalaxy({ cameraPoseRef }: RepoGalaxyProps) {
+export default function RepoGalaxy({ cameraPoseRef, active }: RepoGalaxyProps) {
   const [hoverLabel, setHoverLabel] = useState<{ name: string; x: number; y: number } | null>(
     null,
   )
   const containerRef = useRef<HTMLDivElement | null>(null)
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
+  const cameraRef = useRef<THREE.PerspectiveCamera | null>(null)
+  const controlsRef = useRef<OrbitControls | null>(null)
 
   useEffect(() => {
     const container = containerRef.current
@@ -37,23 +65,27 @@ export default function RepoGalaxy({ cameraPoseRef }: RepoGalaxyProps) {
     const scene = new THREE.Scene()
     scene.fog = new THREE.FogExp2(0xebe2db, 0.00003)
 
-    const camera = new THREE.PerspectiveCamera(
-      60,
-      window.innerWidth / window.innerHeight,
-      0.1,
-      5000000,
-    )
+    const width = container.clientWidth
+    const height = container.clientHeight
+    const camera = new THREE.PerspectiveCamera(60, width / height, 0.1, 5000000)
     camera.position.set(0, 500, 500)
     camera.up.set(0, 0, 1)
     camera.lookAt(0, 0, 0)
+    cameraRef.current = camera
 
-    const orbit = new MapControls(camera, canvas)
+    const orbit = new OrbitControls(camera, canvas)
     orbit.enableDamping = true
     orbit.dampingFactor = 0.05
-    orbit.screenSpacePanning = false
+    orbit.enablePan = false
     orbit.minDistance = 1
     orbit.maxDistance = 1600
-    orbit.maxPolarAngle = Math.PI / 3
+    orbit.minPolarAngle = 0
+    orbit.maxPolarAngle = Math.PI
+    orbit.autoRotate = true
+    orbit.autoRotateSpeed = 0.2
+    orbit.target.set(0, 0, 0)
+    orbit.update()
+    controlsRef.current = orbit
 
     const renderer = new THREE.WebGLRenderer({
       antialias: true,
@@ -62,7 +94,7 @@ export default function RepoGalaxy({ cameraPoseRef }: RepoGalaxyProps) {
       alpha: true,
     })
     renderer.setPixelRatio(window.devicePixelRatio)
-    renderer.setSize(window.innerWidth, window.innerHeight)
+    renderer.setSize(width, height)
     renderer.outputColorSpace = THREE.SRGBColorSpace
     renderer.toneMapping = THREE.ACESFilmicToneMapping
     renderer.toneMappingExposure = 0.5
@@ -72,12 +104,7 @@ export default function RepoGalaxy({ cameraPoseRef }: RepoGalaxyProps) {
     renderScene.clearColor = new THREE.Color(0x000000)
     renderScene.clearAlpha = 0
 
-    const bloomPass = new UnrealBloomPass(
-      new THREE.Vector2(window.innerWidth, window.innerHeight),
-      1.0,
-      0.2,
-      0.9,
-    )
+    const bloomPass = new UnrealBloomPass(new THREE.Vector2(width, height), 1.0, 0.2, 0.9)
     bloomPass.threshold = BLOOM_PARAMS.bloomThreshold
     bloomPass.strength = BLOOM_PARAMS.bloomStrength
     bloomPass.radius = BLOOM_PARAMS.bloomRadius
@@ -189,6 +216,10 @@ export default function RepoGalaxy({ cameraPoseRef }: RepoGalaxyProps) {
         const domCanvas = renderer.domElement
         camera.aspect = domCanvas.clientWidth / domCanvas.clientHeight
         camera.updateProjectionMatrix()
+        bloomPass.setSize(domCanvas.clientWidth, domCanvas.clientHeight)
+        bloomComposer.setSize(domCanvas.clientWidth, domCanvas.clientHeight)
+        overlayComposer.setSize(domCanvas.clientWidth, domCanvas.clientHeight)
+        baseComposer.setSize(domCanvas.clientWidth, domCanvas.clientHeight)
       }
 
       const domCanvas = renderer.domElement
@@ -247,11 +278,28 @@ export default function RepoGalaxy({ cameraPoseRef }: RepoGalaxyProps) {
     }
   }, [cameraPoseRef])
 
+  useEffect(() => {
+    if (!active) {
+      return
+    }
+    const camera = cameraRef.current
+    const controls = controlsRef.current
+    if (!camera || !controls) {
+      return
+    }
+    camera.position.set(0, 500, 500)
+    camera.lookAt(0, 0, 0)
+    controls.target.set(0, 0, 0)
+    controls.update()
+  }, [active])
+
   return (
-    <div ref={containerRef} className="repo-galaxy-root">
-      <canvas ref={canvasRef} className="repo-galaxy-canvas" />
+    <div ref={containerRef} style={rootStyle}>
+      <canvas ref={canvasRef} style={canvasStyle} />
       {hoverLabel && (
-        <div className="repo-galaxy-label" style={{ left: hoverLabel.x, top: hoverLabel.y }}>
+        <div
+          style={{ ...labelStyle, left: hoverLabel.x, top: hoverLabel.y }}
+        >
           {hoverLabel.name}
         </div>
       )}

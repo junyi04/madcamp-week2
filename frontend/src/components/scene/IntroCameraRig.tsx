@@ -7,13 +7,19 @@ import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 const INTRO_DURATION = 5.0;
 const AUTO_ROTATE_SPEED = 0.15;
 
+// universe -> galaxy : close up
 const FOCUS_DURATION = 3.0;
 const FOCUS_DISTANCE = 5.0;
 const FOCUS_HEIGHT = 1.2;
 
+// galaxy -> universe : wide shot
+const DEFAULT_CAMERA = new Vector3(0, 6, 18);
+const DEFAULT_TARGET = new Vector3(0, 0, 0);
+
 type IntroCameraRigProps = {
   autoRotate: boolean;
   focusTarget?: [number, number, number] | null;
+  exitTarget?: [number, number, number] | null;
   onStartInteract?: () => void;
   onIntroDone: () => void;
 };
@@ -21,6 +27,7 @@ type IntroCameraRigProps = {
 export default function IntroCameraRig({
   autoRotate,
   focusTarget,
+  exitTarget,
   onStartInteract,
   onIntroDone,
 }: IntroCameraRigProps) {
@@ -36,9 +43,67 @@ export default function IntroCameraRig({
     fromTarget: new Vector3(),
     toTarget: new Vector3(),
   });
+  const exitStateRef = useRef({
+    key: null as string | null,
+    active: false,
+    progress: 0,
+    from: new Vector3(),
+    to: new Vector3(),
+    fromTarget: new Vector3(),
+    toTarget: new Vector3(),
+  });
 
-  // 레포 선택 시 은하 클로즈 업
+  // repo focus transition
   useFrame((state, delta) => {
+    const exitKey = exitTarget ? exitTarget.join(",") : null;
+    const exitState = exitStateRef.current;
+
+    if (exitKey !== exitState.key) {
+      exitState.key = exitKey;
+      exitState.progress = 0;
+      exitState.active = Boolean(exitTarget);
+      exitState.from.copy(state.camera.position);
+      exitState.to.copy(DEFAULT_CAMERA);
+      exitState.fromTarget.copy(controlsRef.current?.target ?? DEFAULT_TARGET);
+      exitState.toTarget.copy(DEFAULT_TARGET);
+
+      if (exitTarget) {
+        const targetVec = new Vector3(...exitTarget);
+        const direction = DEFAULT_CAMERA.clone().sub(targetVec);
+
+        if (direction.lengthSq() < 0.0001) {
+          direction.set(0, 0, 1);
+        }
+
+        direction.normalize();
+        exitState.from.copy(targetVec).addScaledVector(direction, FOCUS_DISTANCE);
+        exitState.from.y = targetVec.y + FOCUS_HEIGHT;
+        exitState.fromTarget.copy(targetVec);
+
+        doneRef.current = true;
+        onIntroDone();
+      }
+    }
+
+    if (exitState.active) {
+      exitState.progress = Math.min(exitState.progress + delta / FOCUS_DURATION, 1);
+      const t = exitState.progress;
+      const ease = 1 - Math.pow(1 - t, 3);
+
+      state.camera.position.lerpVectors(exitState.from, exitState.to, ease);
+      controlsRef.current?.target.lerpVectors(
+        exitState.fromTarget,
+        exitState.toTarget,
+        ease,
+      );
+      state.camera.lookAt(controlsRef.current?.target ?? exitState.toTarget);
+      controlsRef.current?.update();
+      if (exitState.progress >= 1) {
+        exitState.active = false;
+      }
+      return;
+    }
+
     const focusKey = focusTarget ? focusTarget.join(",") : null;
     const focusState = focusStateRef.current;
 

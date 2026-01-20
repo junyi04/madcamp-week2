@@ -17,6 +17,8 @@ type RepoLike = {
 type UniverseCanvasProps = {
   repos: RepoLike[];
   selectedRepoId?: number | null;
+  focusRepoId?: number | null;
+  exitRepoId?: number | null;
   onSelectRepo?: (repoId: number) => void;
 };
 
@@ -38,6 +40,8 @@ const FOCUS_DURATION = 1.8;
 export default function UniverseCanvas({
   repos,
   selectedRepoId,
+  focusRepoId,
+  exitRepoId,
   onSelectRepo,
 }: UniverseCanvasProps) {
   const [hoveredId, setHoveredId] = useState<string | null>(null);
@@ -144,8 +148,11 @@ export default function UniverseCanvas({
     }
   }, [clusters, hoveredId]);
 
+  const activeRepoId = focusRepoId ?? selectedRepoId ?? null;
+  const exitActiveId = exitRepoId ?? null;
+
   useEffect(() => {
-    if (selectedRepoId == null) {
+    if (activeRepoId == null && exitActiveId == null) {
       setFocusActive(false);
       return;
     }
@@ -156,19 +163,31 @@ export default function UniverseCanvas({
     }, FOCUS_DURATION * 1000);
 
     return () => window.clearTimeout(timer);
-  }, [selectedRepoId]);
+  }, [activeRepoId, exitActiveId]);
 
   const focusTarget = useMemo(() => {
-    if (selectedRepoId == null) {
+    if (activeRepoId == null) {
       return null;
     }
-    const targetId = String(selectedRepoId);
+    const targetId = String(activeRepoId);
     const cluster =
       clusters.find((item) => item.id === targetId && item.phase !== "exit") ??
       placements.find((item) => item.id === targetId);
 
     return cluster ? cluster.position : null;
-  }, [selectedRepoId, clusters, placements]);
+  }, [activeRepoId, clusters, placements]);
+
+  const exitTarget = useMemo(() => {
+    if (exitActiveId == null) {
+      return null;
+    }
+    const targetId = String(exitActiveId);
+    const cluster =
+      clusters.find((item) => item.id === targetId && item.phase !== "exit") ??
+      placements.find((item) => item.id === targetId);
+
+    return cluster ? cluster.position : null;
+  }, [exitActiveId, clusters, placements]);
 
   const autoRotate = introDone && !isHovered && !focusActive;
 
@@ -191,7 +210,7 @@ export default function UniverseCanvas({
       {clusters.map((p) => {
         const isExiting = p.phase === "exit";
         const isFocused =
-          selectedRepoId != null && String(selectedRepoId) === p.id && !isExiting;
+          activeRepoId != null && String(activeRepoId) === p.id && !isExiting;
         return (
           <GalaxyCluster
             key={p.id}
@@ -237,6 +256,7 @@ export default function UniverseCanvas({
       <IntroCameraRig
         autoRotate={autoRotate}
         focusTarget={focusTarget}
+        exitTarget={exitTarget}
         onIntroDone={() => setIntroDone(true)}
       />
     </Canvas>
