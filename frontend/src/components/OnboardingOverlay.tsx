@@ -1,3 +1,7 @@
+import mainPreview from '../assets/main.png'
+import galaxyPreview from '../assets/galaxy.png'
+import friendPreview from '../assets/friend.png'
+
 type OnboardingOverlayProps = {
   loading: boolean
   onContinue: () => void
@@ -10,19 +14,20 @@ const OnboardingOverlay = ({ loading, onContinue }: OnboardingOverlayProps) => (
         Welcome
       </p>
       <h2 className="mt-3 text-3xl font-semibold md:text-4xl">
-        Your GitHub universe, mapped
+        Your GitHub Universe
       </h2>
       <p className="mt-3 text-base text-slate-300 md:text-lg">
-        We are pulling your repositories and building the galaxy in the
-        background. Here is what you will see when you step in.
+        Welcome! Here is what you will see when you step in.
       </p>
 
       <div className="mt-8 grid gap-5 md:grid-cols-3">
         <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
-          <div className="flex aspect-[16/9] items-center justify-center rounded-lg border border-dashed border-white/20 bg-black/40 text-[11px] uppercase tracking-[0.2em] text-slate-400">
-            Main page preview
-          </div>
-          <p className="text-xs uppercase tracking-[0.2em] text-slate-400">
+          <img
+            src={mainPreview}
+            alt="Main page preview"
+            className="aspect-[16/9] w-full rounded-lg border border-white/10 object-cover"
+          />
+          <p className="text-xs uppercase tracking-[0.2em] text-slate-400 mt-3">
             Main Page
           </p>
           <h3 className="mt-2 text-xl font-semibold">Universe Overview</h3>
@@ -32,29 +37,31 @@ const OnboardingOverlay = ({ loading, onContinue }: OnboardingOverlayProps) => (
           </p>
         </div>
         <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
-          <div className="flex aspect-[16/9] items-center justify-center rounded-lg border border-dashed border-white/20 bg-black/40 text-[11px] uppercase tracking-[0.2em] text-slate-400">
-            Repo galaxy preview
-          </div>
-          <p className="text-xs uppercase tracking-[0.2em] text-slate-400">
+          <img
+            src={galaxyPreview}
+            alt="Repo galaxy preview"
+            className="aspect-[16/9] w-full rounded-lg border border-white/10 object-cover"
+          />
+          <p className="text-xs uppercase tracking-[0.2em] text-slate-400 mt-3">
             Repo Galaxy
           </p>
           <h3 className="mt-2 text-xl font-semibold">Commit Stars</h3>
           <p className="mt-3 text-sm text-slate-300 md:text-base">
-            Dive into a single repo to explore commits and PRs as a spiral
-            system with color-coded stars.
+            Dive into a single repo to explore commits and PRs as a galaxy with color-coded stars.
           </p>
         </div>
         <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
-          <div className="flex aspect-[16/9] items-center justify-center rounded-lg border border-dashed border-white/20 bg-black/40 text-[11px] uppercase tracking-[0.2em] text-slate-400">
-            Friends panel preview
-          </div>
-          <p className="text-xs uppercase tracking-[0.2em] text-slate-400">
+          <img
+            src={friendPreview}
+            alt="Friends panel preview"
+            className="aspect-[16/9] w-full rounded-lg border border-white/10 object-cover"
+          />
+          <p className="text-xs uppercase tracking-[0.2em] text-slate-400 mt-3">
             Friends
           </p>
           <h3 className="mt-2 text-xl font-semibold">Shared Skies</h3>
           <p className="mt-3 text-sm text-slate-300 md:text-base">
-            Add friends, switch universes instantly, and compare galaxies
-            side by side.
+            Add friends and go explore their galaxies together.
           </p>
         </div>
       </div>
