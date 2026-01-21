@@ -178,7 +178,7 @@ export default function RepoGalaxy({
     orbit.minPolarAngle = 0
     orbit.maxPolarAngle = Math.PI
     orbit.autoRotate = true
-    orbit.autoRotateSpeed = 0.2
+    orbit.autoRotateSpeed = 0.5
     orbit.target.set(0, 0, 0)
     orbit.update()
     controlsRef.current = orbit
@@ -403,7 +403,7 @@ export default function RepoGalaxy({
     const controls = controlsRef.current
     if (!camera || !controls) return
 
-    camera.position.set(0, 500, 500)
+    camera.position.set(0, 800, 350)
     camera.lookAt(0, 0, 0)
     controls.target.set(0, 0, 0)
     controls.update()
