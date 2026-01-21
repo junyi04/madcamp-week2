@@ -14,6 +14,8 @@ export type FriendRequest = {
   status: 'PENDING' | 'ACCEPTED' | 'REJECTED' | 'CANCELED'
   createdAt: string
   respondedAt: string | null
+  requester: FriendUser
+  receiver: FriendUser
 }
 
 export type Friendship = {

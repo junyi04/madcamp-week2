@@ -123,7 +123,12 @@ const FriendPanel = ({
                     key={request.id}
                     className="flex items-center justify-between rounded-lg border border-white/5 bg-black/30 px-2 py-1 text-xs text-slate-200"
                   >
-                    <span>Request #{request.id}</span>
+                    <span>
+                      Incoming request from{' '}
+                      {request.requester?.githubUser?.githubId ??
+                        request.requester?.nickname ??
+                        'unknown'}
+                    </span>
                     <div className="flex gap-1">
                       <button
                         type="button"
@@ -157,7 +162,10 @@ const FriendPanel = ({
                     key={request.id}
                     className="rounded-lg border border-white/5 bg-black/30 px-2 py-1"
                   >
-                    Request #{request.id}
+                    Pending request to{' '}
+                    {request.receiver?.githubUser?.githubId ??
+                      request.receiver?.nickname ??
+                      'unknown'}
                   </div>
                 ))}
               </div>
