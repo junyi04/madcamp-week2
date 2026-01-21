@@ -5,27 +5,63 @@ type OnboardingOverlayProps = {
 
 const OnboardingOverlay = ({ loading, onContinue }: OnboardingOverlayProps) => (
   <div className="absolute inset-0 z-50 flex items-center justify-center bg-slate-950/80 px-6 text-slate-100 backdrop-blur-sm">
-    <div className="w-full max-w-md rounded-2xl border border-white/10 bg-black/70 p-6 shadow-[0_20px_60px_-25px_rgba(0,0,0,0.7)]">
+    <div className="w-full max-w-6xl rounded-3xl border border-white/10 bg-black/70 p-8 shadow-[0_20px_60px_-25px_rgba(0,0,0,0.7)] md:p-10">
       <p className="text-xs uppercase tracking-[0.3em] text-cyan-200/70">
         Welcome
       </p>
-      <h2 className="mt-3 text-2xl font-semibold">Syncing your universe</h2>
-      <p className="mt-3 text-sm text-slate-300">
+      <h2 className="mt-3 text-3xl font-semibold md:text-4xl">
+        Your GitHub universe, mapped
+      </h2>
+      <p className="mt-3 text-base text-slate-300 md:text-lg">
         We are pulling your repositories and building the galaxy in the
-        background. You can jump in now or wait until the sync finishes.
+        background. Here is what you will see when you step in.
       </p>
-      <div className="mt-5 flex items-center gap-2 text-xs text-slate-200/80">
-        <span
-          className={`h-3 w-3 rounded-full border border-cyan-200/30 ${
-            loading ? 'animate-spin border-t-cyan-200' : 'bg-cyan-200/80'
-          }`}
-        />
-        {loading ? 'Loading data...' : 'Ready to explore.'}
+
+      <div className="mt-8 grid gap-5 md:grid-cols-3">
+        <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
+          <div className="flex aspect-[16/9] items-center justify-center rounded-lg border border-dashed border-white/20 bg-black/40 text-[11px] uppercase tracking-[0.2em] text-slate-400">
+            Main page preview
+          </div>
+          <p className="text-xs uppercase tracking-[0.2em] text-slate-400">
+            Main Page
+          </p>
+          <h3 className="mt-2 text-xl font-semibold">Universe Overview</h3>
+          <p className="mt-3 text-sm text-slate-300 md:text-base">
+            See all repos as galaxies, zoom in, and watch activity light up as
+            stars.
+          </p>
+        </div>
+        <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
+          <div className="flex aspect-[16/9] items-center justify-center rounded-lg border border-dashed border-white/20 bg-black/40 text-[11px] uppercase tracking-[0.2em] text-slate-400">
+            Repo galaxy preview
+          </div>
+          <p className="text-xs uppercase tracking-[0.2em] text-slate-400">
+            Repo Galaxy
+          </p>
+          <h3 className="mt-2 text-xl font-semibold">Commit Stars</h3>
+          <p className="mt-3 text-sm text-slate-300 md:text-base">
+            Dive into a single repo to explore commits and PRs as a spiral
+            system with color-coded stars.
+          </p>
+        </div>
+        <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
+          <div className="flex aspect-[16/9] items-center justify-center rounded-lg border border-dashed border-white/20 bg-black/40 text-[11px] uppercase tracking-[0.2em] text-slate-400">
+            Friends panel preview
+          </div>
+          <p className="text-xs uppercase tracking-[0.2em] text-slate-400">
+            Friends
+          </p>
+          <h3 className="mt-2 text-xl font-semibold">Shared Skies</h3>
+          <p className="mt-3 text-sm text-slate-300 md:text-base">
+            Add friends, switch universes instantly, and compare galaxies
+            side by side.
+          </p>
+        </div>
       </div>
       <button
         type="button"
         onClick={onContinue}
-        className="mt-6 w-full rounded-xl border border-white/10 bg-gradient-to-r from-cyan-300/90 via-sky-300/90 to-emerald-300/90 px-5 py-3 text-sm font-semibold text-slate-900 transition hover:brightness-110"
+        className="mt-8 w-full rounded-xl border border-white/10 bg-gradient-to-r from-cyan-300/90 via-sky-300/90 to-emerald-300/90 px-6 py-3.5 text-sm font-semibold text-slate-900 transition hover:brightness-110"
       >
         Enter the Galaxy
       </button>
