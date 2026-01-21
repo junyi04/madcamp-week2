@@ -34,6 +34,8 @@ const GalaxyPage = () => {
   const [guideOpen, setGuideOpen] = useState(false)
   const [statsOpen, setStatsOpen] = useState(false)
   const [showOnboarding, setShowOnboarding] = useState(false)
+  const prevAuthRef = useRef<typeof auth>(null)
+  const didInitRef = useRef(false)
   const focusTimerRef = useRef<number | null>(null)
   const {
     summary,
@@ -61,7 +63,23 @@ const GalaxyPage = () => {
   }, [])
 
   useEffect(() => {
-    setShowOnboarding(!!auth)
+    if (!didInitRef.current) {
+      didInitRef.current = true
+      prevAuthRef.current = auth
+      return
+    }
+
+    if (!auth) {
+      setShowOnboarding(false)
+      prevAuthRef.current = null
+      return
+    }
+
+    if (!prevAuthRef.current) {
+      setShowOnboarding(true)
+    }
+
+    prevAuthRef.current = auth
   }, [auth])
 
   useEffect(() => {
@@ -235,14 +253,25 @@ const GalaxyPage = () => {
   }, [showRepoGalaxy, galaxy, commitGuide])
   const repoGalaxyReady =
     showRepoLayer && galaxy?.repoId != null && galaxy.repoId === selectedRepoId
-  const commitTypes = useMemo(() => {
+  const commitEntries = useMemo(() => {
     if (!repoGalaxyReady) return []
     return (
       galaxy?.celestialObjects
-        .filter((item) => item.type === 'COMMIT' && (item.commit?.type || item.commit?.message))
-        .map((item) => (item.commit?.type ?? item.commit?.message ?? '') as string) ?? []
+        .filter((item) => item.type === 'COMMIT' && item.commit?.sha)
+        .map((item) => ({
+          type: (item.commit?.type ?? item.commit?.message ?? '') as string,
+          sha: item.commit?.sha ?? '',
+        })) ?? []
     )
   }, [repoGalaxyReady, galaxy])
+  const commitTypes = useMemo(
+    () => commitEntries.map((entry) => entry.type),
+    [commitEntries],
+  )
+  const commitShas = useMemo(
+    () => commitEntries.map((entry) => entry.sha).filter(Boolean),
+    [commitEntries],
+  )
   
   const statsReady = (commitStats?.total ?? 0) > 0
   useEffect(() => {
@@ -417,6 +446,7 @@ const GalaxyPage = () => {
                   commitCount={selectedRepo?.commitCount}
                   seedKey={selectedRepo?.repoId ?? selectedRepo?.name}
                   commitTypes={commitTypes}
+                  commitShas={commitShas}
                 />
               )}
             </div>

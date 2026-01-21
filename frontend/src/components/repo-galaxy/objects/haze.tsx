@@ -1,5 +1,5 @@
 import * as THREE from 'three'
-import { BASE_LAYER, HAZE_MAX, HAZE_MIN, HAZE_OPACITY } from '../../../config/renderConfig'
+import { BASE_LAYER, HAZE_MAX, HAZE_MIN, HAZE_OPACITY } from '../config/renderConfig'
 import { clamp } from '../utils'
 
 

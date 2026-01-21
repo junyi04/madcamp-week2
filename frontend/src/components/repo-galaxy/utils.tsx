@@ -1,5 +1,5 @@
 import { Vector3 } from 'three'
-import { ARM_X_DIST, SPIRAL } from '../../config/galaxyConfig'
+import { ARM_X_DIST, SPIRAL } from './config/galaxyConfig'
 
 export function gaussianRandom(
   mean = 0,

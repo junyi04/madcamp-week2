@@ -1,19 +1,9 @@
 import * as THREE from 'three'
 import { Star } from './star'
 import {
-  ARMS,
-  ARM_X_DIST,
-  ARM_X_MEAN,
-  ARM_Y_DIST,
-  ARM_Y_MEAN,
-  CORE_X_DIST,
-  CORE_Y_DIST,
   GALAXY_THICKNESS,
   HAZE_RATIO,
-  NUM_STARS,
-  OUTER_CORE_X_DIST,
-  OUTER_CORE_Y_DIST,
-} from '../../../config/galaxyConfig'
+} from '../config/galaxyConfig'
 import { gaussianRandom, spiral } from '../utils'
 import { Haze } from './haze'
 
@@ -28,15 +18,17 @@ export class Galaxy {
   haze: Haze[]
   random: () => number
 
-  constructor(scene: THREE.Scene, random: () => number = Math.random) {
+  constructor(scene: THREE.Scene, commitCount: number) {
 
     this.scene = scene
-    this.random = random
+    this.random = Math.random
 
-    this.stars = this.generateObject(NUM_STARS, (pos) => new Star(pos, this.random))
+    const NUM_STARS = commitCount * 40 + 500
+    this.stars = this.generateObject(NUM_STARS, (pos) => new Star(pos, this.random), commitCount)
     this.haze = this.generateObject(
       NUM_STARS * HAZE_RATIO,
       (pos) => new Haze(pos, this.random),
+      commitCount
     )
 
     this.stars.forEach((star) => star.toThreeObject(scene))
@@ -56,34 +48,36 @@ export class Galaxy {
   generateObject<T extends GalaxyRenderable>(
     numStars: number,
     generator: (pos: THREE.Vector3) => T,
+    commitCount: number
   ): T[] {
     const objects: T[] = []
 
     for (let i = 0; i < numStars / 5; i++) {
       const pos = new THREE.Vector3(
-        gaussianRandom(0, CORE_X_DIST, this.random),
-        gaussianRandom(0, CORE_Y_DIST, this.random),
+        gaussianRandom(0, commitCount * 0.5, this.random),
+        gaussianRandom(0, commitCount * 0.5, this.random),
         gaussianRandom(0, GALAXY_THICKNESS, this.random),
       )
       const obj = generator(pos)
       objects.push(obj)
     }
 
-    for (let i = 0; i < numStars / 5; i++) {
+    for (let i = 0; i < numStars / 4; i++) {
       const pos = new THREE.Vector3(
-        gaussianRandom(0, OUTER_CORE_X_DIST, this.random),
-        gaussianRandom(0, OUTER_CORE_Y_DIST, this.random),
+        gaussianRandom(0, commitCount * 2, this.random),
+        gaussianRandom(0, commitCount * 2, this.random),
         gaussianRandom(0, GALAXY_THICKNESS, this.random),
       )
       const obj = generator(pos)
       objects.push(obj)
     }
 
+    const ARMS = 2
     for (let j = 0; j < ARMS; j++) {
       for (let i = 0; i < numStars / 4; i++) {
         const pos = spiral(
-          gaussianRandom(ARM_X_MEAN, ARM_X_DIST, this.random),
-          gaussianRandom(ARM_Y_MEAN, ARM_Y_DIST, this.random),
+          gaussianRandom(Math.log2(commitCount + 1) * 15, Math.log2(commitCount + 1) * 30, this.random),
+          gaussianRandom(Math.log2(commitCount + 1) * 7.5, Math.log2(commitCount + 1) * 15, this.random),
           gaussianRandom(0, GALAXY_THICKNESS, this.random),
           (j * 2 * Math.PI) / ARMS,
         )
