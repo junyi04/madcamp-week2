@@ -8,7 +8,7 @@ import AuthGate from '../components/AuthGate'
 import { useFriends } from '../hooks/useFriends'
 import UniverseCanvas from '../components/UniverseCanvas'
 
-const FOCUS_TRANSITION_MS = 1500  // 전환 지연 시간 조정
+const FOCUS_TRANSITION_MS = 1000  // 전환 지연 시간 조정
 
 const GalaxyPage = () => {
   const {
