@@ -63,7 +63,6 @@ export const useGalaxyData = (
   const summaryRefreshQueueRef = useRef(0)
   const summaryRefreshInFlightRef = useRef(false)
 
-  // 레포를 폴링 방식으로 30초마다 호출
   const fetchSummary = async (withSync: boolean) => {
     if (!auth) {
       return
