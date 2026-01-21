@@ -1,5 +1,5 @@
 import * as THREE from 'three'
-import { BASE_LAYER, BLOOM_LAYER } from '../../../config/renderConfig'
+import { BASE_LAYER, BLOOM_LAYER } from '../config/renderConfig'
 
 const textureUrl = new URL('../../../assets/repo-galaxy/sprite120.png', import.meta.url).href
 const texture = new THREE.TextureLoader().load(textureUrl)

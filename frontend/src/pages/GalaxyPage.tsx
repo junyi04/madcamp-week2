@@ -7,6 +7,7 @@ import { useGalaxyData } from '../hooks/useGalaxyData'
 import AuthGate from '../components/AuthGate'
 import { useFriends } from '../hooks/useFriends'
 import UniverseCanvas from '../components/UniverseCanvas'
+import OnboardingOverlay from '../components/OnboardingOverlay'
 
 const FOCUS_TRANSITION_MS = 1000  // 전환 지연 시간 조정
 
@@ -32,6 +33,9 @@ const GalaxyPage = () => {
   const [exitRepoId, setExitRepoId] = useState<number | null>(null)
   const [guideOpen, setGuideOpen] = useState(false)
   const [statsOpen, setStatsOpen] = useState(false)
+  const [showOnboarding, setShowOnboarding] = useState(false)
+  const prevAuthRef = useRef<typeof auth>(null)
+  const didInitRef = useRef(false)
   const focusTimerRef = useRef<number | null>(null)
   const {
     summary,
@@ -59,6 +63,26 @@ const GalaxyPage = () => {
   }, [])
 
   useEffect(() => {
+    if (!didInitRef.current) {
+      didInitRef.current = true
+      prevAuthRef.current = auth
+      return
+    }
+
+    if (!auth) {
+      setShowOnboarding(false)
+      prevAuthRef.current = null
+      return
+    }
+
+    if (!prevAuthRef.current) {
+      setShowOnboarding(true)
+    }
+
+    prevAuthRef.current = auth
+  }, [auth])
+
+  useEffect(() => {
     clearFocusTimer()
     setFocusRepoId(null)
     setExitRepoId(null)
@@ -82,6 +106,7 @@ const GalaxyPage = () => {
     summary?.galaxies.find((repo) => repo.repoId === selectedRepoId) ?? null
   const showRepoGalaxy = selectedRepoId != null
   const showUniverseLayer = !showRepoGalaxy
+  const renderUniverseLayer = !showOnboarding
   const showRepoLayer = showRepoGalaxy
   const commitGuide = useMemo(
     () => [
@@ -228,14 +253,25 @@ const GalaxyPage = () => {
   }, [showRepoGalaxy, galaxy, commitGuide])
   const repoGalaxyReady =
     showRepoLayer && galaxy?.repoId != null && galaxy.repoId === selectedRepoId
-  const commitTypes = useMemo(() => {
+  const commitEntries = useMemo(() => {
     if (!repoGalaxyReady) return []
     return (
       galaxy?.celestialObjects
-        .filter((item) => item.type === 'COMMIT' && (item.commit?.type || item.commit?.message))
-        .map((item) => (item.commit?.type ?? item.commit?.message ?? '') as string) ?? []
+        .filter((item) => item.type === 'COMMIT' && item.commit?.sha)
+        .map((item) => ({
+          type: (item.commit?.type ?? item.commit?.message ?? '') as string,
+          sha: item.commit?.sha ?? '',
+        })) ?? []
     )
   }, [repoGalaxyReady, galaxy])
+  const commitTypes = useMemo(
+    () => commitEntries.map((entry) => entry.type),
+    [commitEntries],
+  )
+  const commitShas = useMemo(
+    () => commitEntries.map((entry) => entry.sha).filter(Boolean),
+    [commitEntries],
+  )
   
   const statsReady = (commitStats?.total ?? 0) > 0
   useEffect(() => {
@@ -272,9 +308,18 @@ const GalaxyPage = () => {
     return <AuthGate status={status} message={authMessage} onLogin={handleGithubLogin} />
   }
 
+  const handleDismissOnboarding = () => {
+    setShowOnboarding(false)
+  }
 
   return (
     <main className="h-screen overflow-hidden bg-[radial-gradient(circle_at_15%_10%,_rgba(56,189,248,0.16),_transparent_55%),radial-gradient(circle_at_80%_0%,_rgba(16,185,129,0.16),_transparent_50%),radial-gradient(circle_at_50%_85%,_rgba(250,204,21,0.1),_transparent_50%),linear-gradient(180deg,_#03050c,_#0b1525_60%,_#02040a)] text-slate-100">
+      {showOnboarding && (
+        <OnboardingOverlay
+          loading={viewLoading || syncing}
+          onContinue={handleDismissOnboarding}
+        />
+      )}
       <div
         className={`grid h-full ${
           sidebarOpen ? 'grid-cols-[320px_minmax(0,1fr)]' : 'grid-cols-1'
@@ -370,22 +415,25 @@ const GalaxyPage = () => {
             </div>
           )}
 
-          <div
-            className={`absolute inset-0 transition-opacity duration-[420ms] ease-in-out ${showUniverseLayer ? 'opacity-100' : 'opacity-0'
+          {renderUniverseLayer && (
+            <div
+              className={`absolute inset-0 transition-opacity duration-[420ms] ease-in-out ${
+                showUniverseLayer ? 'opacity-100' : 'opacity-0'
               } ${showUniverseLayer ? 'pointer-events-auto' : 'pointer-events-none'}`}
-          >
-            <UniverseCanvas
-              repos={summary?.galaxies ?? []}
-              selectedRepoId={selectedRepoId}
-              focusRepoId={focusRepoId}
-              exitRepoId={exitRepoId}
-              onSelectRepo={() => { }}
-            />
+            >
+              <UniverseCanvas
+                repos={summary?.galaxies ?? []}
+                selectedRepoId={selectedRepoId}
+                focusRepoId={focusRepoId}
+                exitRepoId={exitRepoId}
+                onSelectRepo={() => {}}
+              />
 
-            <div className="relative z-10 h-full">
-              <GalaxyCanvas stars={galaxy?.celestialObjects ?? []} />
+              <div className="relative z-10 h-full">
+                <GalaxyCanvas stars={galaxy?.celestialObjects ?? []} />
+              </div>
             </div>
-          </div>
+          )}
 
           <div
             className={`absolute inset-0 transition-opacity duration-[420ms] ease-in-out ${showRepoLayer ? 'opacity-100' : 'opacity-0'
@@ -398,6 +446,7 @@ const GalaxyPage = () => {
                   commitCount={selectedRepo?.commitCount}
                   seedKey={selectedRepo?.repoId ?? selectedRepo?.name}
                   commitTypes={commitTypes}
+                  commitShas={commitShas}
                 />
               )}
             </div>

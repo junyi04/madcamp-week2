@@ -9,8 +9,8 @@ import {
   ARM_Y_DIST,
   ARM_Y_MEAN,
   GALAXY_THICKNESS,
-} from '../../config/galaxyConfig'
-import { BASE_LAYER, BLOOM_LAYER, BLOOM_PARAMS, OVERLAY_LAYER } from '../../config/renderConfig'
+} from './config/galaxyConfig'
+import { BASE_LAYER, BLOOM_LAYER, BLOOM_PARAMS, OVERLAY_LAYER } from './config/renderConfig'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js'
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js'
@@ -68,6 +68,7 @@ type RepoGalaxyProps = {
   commitCount?: number
   seedKey?: string | number
   commitTypes?: string[]
+  commitShas?: string[]
 }
 
 const normalizeCommitType = (value?: string) => {
@@ -109,6 +110,7 @@ export default function RepoGalaxy({
   commitCount,
   seedKey,
   commitTypes,
+  commitShas,
 }: RepoGalaxyProps) {
   const [hoverLabel, setHoverLabel] = useState<{ name: string; x: number; y: number } | null>(
     null,
@@ -259,7 +261,7 @@ export default function RepoGalaxy({
     ro.observe(container)
 
     // 커밋 개수만큼 feature star 생성 : 70개 이상이면 스케일 적용
-    const galaxy = new Galaxy(scene)
+    const galaxy = new Galaxy(scene, commitCount!)
     const rawCommitCount = Math.max(0, Math.floor(commitCount ?? 0));
     let featureStarCount: number;
 
@@ -287,6 +289,9 @@ export default function RepoGalaxy({
       const commitType = commitTypes?.length
         ? normalizeCommitType(commitTypes[index % commitTypes.length])
         : 'other'
+      const commitSha = commitShas?.length
+        ? commitShas[index % commitShas.length]
+        : undefined
       const commitColor = commitTypeColors[commitType]
       const armIndex = Math.floor(randRange(seededRandom, 0, ARMS))
       const position = spiral(
@@ -302,7 +307,7 @@ export default function RepoGalaxy({
           .getHex()
       const size = randRange(seededRandom, 7, 14) // star size
       return {
-        name: `Commit-${index + 1}`,
+        name: commitSha ? `Star-${commitSha.slice(0,6)}` : `Star-${index + 1}`,
         position,
         size,
         color,
@@ -395,7 +400,7 @@ export default function RepoGalaxy({
       skyboxTextures.forEach((texture) => texture.dispose())
       renderer.dispose()
     }
-  }, [cameraPoseRef, commitCount, seedKey, commitTypes])
+  }, [cameraPoseRef, commitCount, seedKey, commitTypes, commitShas])
 
   useEffect(() => {
     if (!active) return
